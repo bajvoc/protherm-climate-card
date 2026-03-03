@@ -1,28 +1,27 @@
-import resolve from 'rollup-plugin-node-resolve';
-import typescript from 'rollup-plugin-typescript2';
-import babel from 'rollup-plugin-babel';
+import resolve from '@rollup/plugin-node-resolve';
+import esbuild from 'rollup-plugin-esbuild';
 import serve from 'rollup-plugin-serve';
-import { terser } from 'rollup-plugin-terser';
 import json from '@rollup/plugin-json';
-import ignore from './rollup-plugins/ignore';
-import { ignoreTextfieldFiles } from './elements/ignore/textfield';
-import { ignoreSelectFiles } from './elements/ignore/select';
-import { ignoreSwitchFiles } from './elements/ignore/switch';
+
+const onwarn = (warning, warn) => {
+  if (warning.code === 'THIS_IS_UNDEFINED' && warning.id?.includes('/node_modules/')) {
+    return;
+  }
+
+  warn(warning);
+};
 
 export default {
-  input: ['src/boilerplate-card.ts'],
+  input: 'src/boilerplate-card.ts',
   output: {
-    dir: './dist',
+    file: './dist/boilerplate-card.js',
     format: 'es',
+    inlineDynamicImports: true,
   },
   plugins: [
     resolve(),
-    typescript(),
+    esbuild({ target: 'es2022' }),
     json(),
-    babel({
-      exclude: 'node_modules/**',
-    }),
-    terser(),
     serve({
       contentBase: './dist',
       host: '0.0.0.0',
@@ -30,10 +29,20 @@ export default {
       allowCrossOrigin: true,
       headers: {
         'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       },
     }),
-    ignore({
-      files: [...ignoreTextfieldFiles, ...ignoreSelectFiles, ...ignoreSwitchFiles].map((file) => require.resolve(file)),
-    }),
   ],
+  watch: {
+    include: 'src/**',
+    exclude: 'node_modules/**',
+    buildDelay: 500,
+    chokidar: {
+      usePolling: true,  // Required for reliable file detection on Docker volume mounts
+      interval: 1000,
+    },
+  },
+  onwarn,
 };
