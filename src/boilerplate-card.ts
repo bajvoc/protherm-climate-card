@@ -21,6 +21,7 @@ import type { BoilerplateCardConfig } from './types';
 import { actionHandler } from './action-handler-directive';
 import { CARD_VERSION } from './const';
 import { localize } from './localize/localize';
+import { ProthermRenderer } from './protherm-thermostat';
 
 // Styled console banner so your card is easy to spot in the browser console.
 // Stays visible in production — useful for version-mismatch debugging in HA.
@@ -287,7 +288,7 @@ export class BoilerplateCard extends LitElement {
     }
 
     // Vertical (default) — stacked sections
-    const entityRow = html`
+    /*const entityRow = html`
       <div class="entity-row clickable-row" @click=${this._handleEntityClick}>
         <div class="icon">
           <ha-icon .icon=${computeIcon(stateObj, this.config.icon)}></ha-icon>
@@ -298,7 +299,9 @@ export class BoilerplateCard extends LitElement {
         </div>
         <div class="entity-actions"><div class="toggle-hint">Tap to toggle</div></div>
       </div>
-    `;
+    `;*/
+
+    const entityRow = ProthermRenderer.renderGauge(stateObj, this.hass);
 
     return html`
       <div class="card-content">
@@ -1002,6 +1005,136 @@ export class BoilerplateCard extends LitElement {
           width: 100%;
           justify-content: flex-start;
         }
+      }
+      /* ── Protherm ─────────────────────────────────────────── */
+      .container {
+        padding: 24px;
+        text-align: center;
+      }
+      .state-off {
+        opacity: 0.6;
+      }
+
+      .gauge-container {
+        position: relative;
+        width: 100%;
+        max-width: 280px;
+        margin: 0 auto;
+      }
+      .gauge {
+        fill: none;
+        stroke-linecap: round;
+        overflow: visible;
+      }
+
+      .gauge-track-bg {
+        stroke-width: 8;
+        fill: none;
+        opacity: 1;
+      }
+
+      .gauge-track {
+        stroke-width: 8;
+        fill: none;
+        stroke-linecap: round;
+        transition: stroke-dasharray 0.5s ease;
+        opacity: 0.5;
+        visibility: hidden;
+      }
+
+      .gauge-bridge {
+        stroke-width: 8;
+        fill: none;
+        stroke-linecap: round;
+        opacity: 1;
+        transition: stroke-dasharray 0.5s ease;
+        visibility: hidden;
+      }
+
+      .heating {
+        visibility: visible;
+      }
+
+      .target-marker {
+        fill: var(--ha-card-background, var(--card-background-color, white));
+        stroke-width: 1;
+      }
+
+      .invert {
+        fill: white;
+        fill-opacity: 0.9;
+        /* drop-shadow is the SVG-compatible way to do shadows */
+        filter: drop-shadow(0 0 2px black);
+      }
+
+      .current-marker {
+        transition: all 0.3s ease;
+      }
+
+      .gauge-center {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -85%);
+        width: 100%;
+      }
+
+      .state-label {
+        font-size: 0.8rem;
+        color: var(--secondary-text-color);
+        letter-spacing: 2px;
+      }
+
+      .main-temp {
+        font-size: 3.5rem;
+        font-weight: 300;
+        line-height: 1;
+        display: flex;
+        justify-content: center;
+        align-items: baseline;
+      }
+
+      /*.addon {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: flex-start;
+        margin-left: 2px;
+      }*/
+      .value {
+          display: flex;
+          margin: 0px;
+          direction: ltr;
+      }
+      .addon {
+        display: flex;
+        flex-direction: column-reverse;
+        padding: 4px 0px;
+      }
+
+      .decimal {
+        font-size: 1.75rem;
+        font-weight: 400;
+        display: inline-block;
+      }
+
+      .unit {
+        font-size: 1.1rem;
+        line-height: 1;
+        font-weight: 500;
+        margin-bottom: 2px;
+
+      .target-label {
+        font-size: 0.9rem;
+        font-weight: 500;
+        opacity: 0.6;
+        margin-top: 5px;
+      }
+
+      .ebusd-footer {
+        margin-top: 25px;
+        padding-top: 15px;
+        border-top: 1px solid var(--divider-color);
+        font-size: 0.9rem;
       }
     `;
   }
