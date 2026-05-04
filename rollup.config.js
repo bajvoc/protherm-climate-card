@@ -36,9 +36,9 @@ const onwarn = (warning, warn) => {
 
 export default [
   {
-    input: 'src/boilerplate-card.ts',
+    input: 'src/protherm-climate-card.ts',
     output: {
-      file: 'dist/boilerplate-card.js',
+      file: 'dist/protherm-climate-card.js',
       format: 'es',
       inlineDynamicImports: true,
     },

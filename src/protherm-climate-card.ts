@@ -1077,12 +1077,61 @@ export class BoilerplateCard extends LitElement {
         left: 50%;
         transform: translate(-50%, -85%);
         width: 100%;
+        margin-top: 10px;
       }
 
       .state-label {
         font-size: 0.8rem;
         color: var(--secondary-text-color);
         letter-spacing: 2px;
+      }
+
+      .temp-display-container {
+        display: flex;
+        align-items: flex-end; /* Aligns all three columns to the bottom */
+        justify-content: center;
+        width: 100%;
+      }
+
+      .left-alarm,
+      .right-alarm {
+        /* Equal widths force the main-temp to the absolute center */
+        flex: 0 0 50px;
+        height: 100%; /* Match container height */
+        display: flex;
+        align-items: flex-end; /* Content at the bottom */
+      }
+
+      .left-alarm {
+        justify-content: flex-end; /* Pushes icon toward the temp */
+      }
+
+      .right-alarm {
+        justify-content: flex-start; /* Pushes icon toward the temp */
+      }
+
+      .alarm-icon {
+        visibility: hidden;
+        color: #ff0000;
+        font-size: 30px;
+        line-height: 1; /* Prevents extra vertical space below icon */
+      }
+
+      .alarm-icon.active {
+        visibility: visible;
+        animation: alarm-flash 0.8s infinite;
+      }
+
+      @keyframes alarm-flash {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.2;
+        }
+        100% {
+          opacity: 1;
+        }
       }
 
       .main-temp {
@@ -1092,18 +1141,13 @@ export class BoilerplateCard extends LitElement {
         display: flex;
         justify-content: center;
         align-items: baseline;
+        margin: 0 10px;
       }
 
-      /*.addon {
-        display: inline-flex;
-        flex-direction: column;
-        align-items: flex-start;
-        margin-left: 2px;
-      }*/
       .value {
-          display: flex;
-          margin: 0px;
-          direction: ltr;
+        display: flex;
+        margin: 0px;
+        direction: ltr;
       }
       .addon {
         display: flex;
@@ -1122,12 +1166,105 @@ export class BoilerplateCard extends LitElement {
         line-height: 1;
         font-weight: 500;
         margin-bottom: 2px;
+      }
 
       .target-label {
-        font-size: 0.9rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+      }
+
+      .label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 120px;
+        margin-bottom: 2px;
+      }
+
+      .time-container {
+        display: flex;
+        position: relative;
+        font-size: 0.7rem; /* Half temperature size */
+        color: var(--secondary-text-color);
+        width: 0; /* Ensures the colon is the zero-point for alignment */
+        justify-content: center;
+      }
+
+      /* The Colon sits exactly above the start/end of the bar */
+      .colon-align {
+        font-weight: bold;
+      }
+
+      /* Position hours and minutes relative to the colon */
+      .time-container.start .hours {
+        position: absolute;
+        right: 4px; /* Space between hour and colon */
+      }
+      .time-container.start .minutes {
+        position: absolute;
+        left: 4px; /* Space between colon and minutes */
+      }
+
+      .time-container.end .minutes {
+        position: absolute;
+        right: 4px;
+      }
+      .time-container.end .hours {
+        position: absolute;
+        left: 4px;
+      }
+
+      .target-text {
+        font-size: 18px;
+        font-weight: bold;
+        white-space: nowrap;
+      }
+
+      .progress-track {
+        width: 120px;
+        height: 4px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background-color: #4caf50;
+        transition: width 0.5s ease;
+      }
+
+      .temp-footer {
+        display: flex;
+        justify-content: center; /* This centers the group */
+        align-items: center;
+        gap: 12px; /* Space between the two numbers */
+        width: 100%;
+        margin-top: 8px;
+        font-size: 0.8rem;
         font-weight: 500;
-        opacity: 0.6;
-        margin-top: 5px;
+      }
+
+      .footer-temp {
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      /* Outside Temp: Always visible and Blue */
+      .footer-temp.outside {
+        color: #448aff; /* Nice vibrant blue */
+      }
+
+      /* Return Temp: Red and only shown during alarm */
+      .footer-temp.return {
+        display: none; /* Use display:none so 'outside' can take the center spot */
+        color: #ff4444; /* Red */
+      }
+
+      .footer-temp.return.active {
+        display: inline; /* Revealed during alarm */
       }
 
       .ebusd-footer {
