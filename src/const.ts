@@ -10,4 +10,5 @@ export const MAX = 35;
 // The total length of a 270-degree arc with radius 40 is ~188.5
 export const TOTALLENGTH = 188.5;
 
-export const BACKGROUNDCOLOR = '#ebebeb';
+//export const BACKGROUNDCOLOR = '#ebebeb';
+export const BACKGROUNDCOLOR = 'lightblue';

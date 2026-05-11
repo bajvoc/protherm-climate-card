@@ -15,18 +15,19 @@ import {
 } from 'custom-card-helpers'; // Community-maintained helpers: https://github.com/custom-cards/custom-card-helpers
 
 // TODO: Replace this import with your own config type once you've defined your fields in types.ts.
-import type { BoilerplateCardConfig } from './types';
+import type { GaugeData, ProthermClimateCardConfig } from './types';
 
 // Local action-handler directive — provides tap / hold / double-tap gesture support.
 import { actionHandler } from './action-handler-directive';
 import { CARD_VERSION } from './const';
 import { localize } from './localize/localize';
 import { ProthermRenderer } from './protherm-thermostat';
+import { calculateprogressPercentage, calculateTempFromPoint } from './protherm-helpers';
 
 // Styled console banner so your card is easy to spot in the browser console.
 // Stays visible in production — useful for version-mismatch debugging in HA.
 console.info(
-  `%c  BOILERPLATE-CARD \n%c  ${localize('common.version')} ${CARD_VERSION}    `,
+  `%c  PROTHERM-CLIMATE-CARD \n%c  ${localize('common.version')} ${CARD_VERSION}    `,
   'color: orange; font-weight: bold; background: black',
   'color: white; font-weight: bold; background: dimgray',
 );
@@ -41,19 +42,19 @@ interface WindowWithCustomCards extends Window {
 (window as unknown as WindowWithCustomCards).customCards =
   (window as unknown as WindowWithCustomCards).customCards || [];
 (window as unknown as WindowWithCustomCards).customCards.push({
-  // TODO: Change 'boilerplate-card' to match your @customElement decorator name.
-  type: 'boilerplate-card',
+  // TODO: Change 'protherm-climate-card' to match your @customElement decorator name.
+  type: 'protherm-climate-card',
   // TODO: Give your card a user-facing name and description.
-  name: 'Boilerplate Card',
-  description: 'A template custom card for you to create something awesome',
+  name: 'Protherm Climate Card',
+  description: 'A custom climate card for Protherm thermostats with enhanced features and styling.',
 });
 
-// TODO: Rename 'boilerplate-card' to your card's unique tag name.
+// TODO: Rename 'protherm-climate-card' to your card's unique tag name.
 // Convention: all lowercase, hyphen-separated, and prefixed to avoid clashes
 // e.g. 'my-weather-card'. Must match the `type:` in your YAML config and the
 // window.customCards entry above.
-@customElement('boilerplate-card')
-export class BoilerplateCard extends LitElement {
+@customElement('protherm-climate-card')
+export class ProthermClimateCard extends LitElement {
   // getConfigElement is called by HA when the user opens the visual editor.
   // The dynamic import keeps the editor code out of the main bundle — it is only
   // loaded when actually needed, improving initial load time.
@@ -61,7 +62,7 @@ export class BoilerplateCard extends LitElement {
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
     try {
       await import('./editor');
-      const element = document.createElement('boilerplate-card-editor');
+      const element = document.createElement('protherm-climate-card-editor');
       return element;
     } catch (error) {
       console.error('Failed to load editor:', error);
@@ -86,8 +87,9 @@ export class BoilerplateCard extends LitElement {
   // `config` is private internal state set via setConfig().
   // Using @state (instead of @property) means it won't be exposed as a public
   // property but will still trigger re-renders when it changes.
-  @state() private config!: BoilerplateCardConfig;
+  @state() private config!: ProthermClimateCardConfig;
 
+  @property({ attribute: false }) public _localTargetTemp?: number;
   // setConfig is called by HA whenever the YAML config changes (including from
   // the visual editor). It runs before the element is connected to the DOM, so
   // you can't access `this.hass` here — it may not be set yet.
@@ -99,7 +101,7 @@ export class BoilerplateCard extends LitElement {
   //   • Never call async operations here; use connectedCallback or firstUpdated instead.
   //
   // https://lit.dev/docs/components/properties/#accessors-custom
-  public setConfig(config: BoilerplateCardConfig): void {
+  public setConfig(config: ProthermClimateCardConfig): void {
     // TODO: Validate required fields. For example:
     //   if (!config.entity) throw new Error('You must provide an entity.');
     if (!config) {
@@ -109,7 +111,7 @@ export class BoilerplateCard extends LitElement {
     // Merge defaults with the user-supplied config.
     // TODO: Add your own defaults here for any optional config fields.
     this.config = {
-      name: 'Boilerplate',
+      name: 'Prothermclimate',
       layout: 'vertical',
       display_mode: 'card',
       ...config,
@@ -174,10 +176,60 @@ export class BoilerplateCard extends LitElement {
     if (!this.config.entity) {
       return this._showError('No entity defined');
     }
-
     const stateObj = this.hass.states[this.config.entity];
     if (!stateObj) {
       return this._showError(`Entity not found: ${this.config.entity}`);
+    }
+    if (!this.config.heating_switch) {
+      return this._showError('No heating switch entity defined');
+    }
+    const heatingSwitchStateObj = this.hass.states[this.config.heating_switch];
+    if (!heatingSwitchStateObj) {
+      return this._showError(`Heating switch entity not found: ${this.config.heating_switch}`);
+    }
+    const externalTemperatureStateObj = this._getExternalTemperatureEntity();
+    if (externalTemperatureStateObj !== undefined) {
+      if (
+        !externalTemperatureStateObj.attributes.device_class ||
+        externalTemperatureStateObj.attributes.device_class !== 'temperature'
+      ) {
+        return this._showError(`Unsupported external temperature entity, device_class must be 'temperature'`);
+      }
+    }
+    const returnTemperatureStateObj = this._getReturnTemperatureEntity();
+    if (returnTemperatureStateObj !== undefined) {
+      if (
+        !returnTemperatureStateObj.attributes.device_class ||
+        returnTemperatureStateObj.attributes.device_class !== 'temperature'
+      ) {
+        return this._showError(`Unsupported return temperature entity, device_class must be 'temperature'`);
+      }
+    } else {
+      return this._showError(`Return temperature entity not found: ${this.config.return_temperature_entity}`);
+    }
+    const scheduleStateObj = this._getScheduleEntity();
+    if (scheduleStateObj) {
+      if (!scheduleStateObj.attributes.timeslots || scheduleStateObj.attributes.timeslots.length === 0) {
+        return this._showError(`Unsupported schedule entity`);
+      }
+    }
+    const temperatureAlarmStateObj = this._getTemperatureAlarmEntity();
+    if (temperatureAlarmStateObj !== undefined) {
+      if (
+        !temperatureAlarmStateObj.attributes.device_class ||
+        temperatureAlarmStateObj.attributes.device_class !== 'heat'
+      ) {
+        return this._showError(`Unsupported temperature alarm entity, device_class must be 'heat'`);
+      }
+    }
+    const pressureAlarmStateObj = this._getPressureAlarmEntity();
+    if (pressureAlarmStateObj !== undefined) {
+      if (
+        !pressureAlarmStateObj.attributes.device_class ||
+        pressureAlarmStateObj.attributes.device_class !== 'safety'
+      ) {
+        return this._showError(`Unsupported pressure alarm entity, device_class must be 'safety'`);
+      }
     }
 
     // Badge / chip mode — no ha-card wrapper
@@ -211,7 +263,7 @@ export class BoilerplateCard extends LitElement {
         ${actionHandler(actionHandlerConfig)}
         .config=${this.config}
         tabindex="0"
-        .label=${`Boilerplate: ${this.config.entity}`}
+        .label=${`Prothermclimate: ${this.config.entity}`}
         class="clickable-card ${styleClass} ${layoutClass}"
         style=${inlineStyle}
       >
@@ -300,17 +352,30 @@ export class BoilerplateCard extends LitElement {
         <div class="entity-actions"><div class="toggle-hint">Tap to toggle</div></div>
       </div>
     `;*/
+    const gaugeData = this._getGaugeData(stateObj);
+    const entityRow = ProthermRenderer.renderGaugeContainer(this, gaugeData);
 
-    const entityRow = ProthermRenderer.renderGauge(stateObj, this.hass);
-
+    //${!isMinimal ? this._renderActionButtons(stateObj) : ''}
     return html`
       <div class="card-content">
-        ${entityRow} ${!isMinimal ? this._renderAttributes(stateObj, this.config.attribute_limit ?? 3) : ''}
-        ${!isMinimal ? this._renderActionButtons(stateObj) : ''}
+        <ha-card>
+          <div class="header-controls">
+            <ha-icon-button
+              class="power-button ${gaugeData.heatingEnabled ? 'on' : 'off'}"
+              .label=${gaugeData.heatingEnabled ? 'Turn Off' : 'Turn On'}
+              @click=${this._togglePower}
+            >
+              <ha-icon icon="mdi:power"></ha-icon>
+            </ha-icon-button>
+          </div>
+          ${entityRow}
+        </ha-card>
+        ${!isMinimal ? this._renderAttributes(stateObj, this.config.attribute_limit ?? 3) : ''}
         ${this.config.show_timestamps !== false
           ? html`
               <div class="timestamps">
                 <div class="last-changed"><strong>Last Changed:</strong> ${formatTimestamp(stateObj.last_changed)}</div>
+                <div class="last-changed"><strong>Raw Last Changed:</strong> ${stateObj.last_changed}</div>
                 <div class="last-updated"><strong>Last Updated:</strong> ${formatTimestamp(stateObj.last_updated)}</div>
               </div>
             `
@@ -328,7 +393,9 @@ export class BoilerplateCard extends LitElement {
   //   if (ev.detail.action === 'tap') { /* custom tap logic */ return; }
   private _handleAction(ev: ActionHandlerEvent): void {
     if (this.hass && this.config && ev.detail.action) {
-      handleAction(this, this.hass, this.config, ev.detail.action);
+      if (ev.detail.action !== 'tap') {
+        handleAction(this, this.hass, this.config, ev.detail.action);
+      }
     }
   }
 
@@ -340,6 +407,7 @@ export class BoilerplateCard extends LitElement {
   // of writing domain-specific logic here — this is for educational purposes.
   private _handleEntityClick(ev: Event): void {
     ev.stopPropagation();
+
     if (!this.config.entity || !this.hass) return;
 
     const stateObj = this.hass.states[this.config.entity];
@@ -370,6 +438,25 @@ export class BoilerplateCard extends LitElement {
         // For other entities, show more info
         this._showMoreInfo(this.config.entity);
     }
+  }
+
+  public handleGaugeClick(ev: MouseEvent): void {
+    ev.stopPropagation();
+
+    const path = ev.currentTarget as SVGPathElement;
+    const rect = path.ownerSVGElement!.getBoundingClientRect();
+
+    // Get the new temperature
+    const temp = calculateTempFromPoint(ev.clientX, ev.clientY, rect);
+    const roundedTemp = Math.round(temp * 2) / 2;
+
+    this._localTargetTemp = roundedTemp;
+    // Update Home Assistant
+    this.hass.callService('climate', 'set_temperature', {
+      entity_id: this.config.entity,
+      temperature: roundedTemp,
+    });
+    this.requestUpdate();
   }
 
   private _callService(domain: string, service: string, serviceData: Record<string, unknown>): void {
@@ -542,9 +629,17 @@ export class BoilerplateCard extends LitElement {
   private _handleDemoServiceCall(): void {
     this._callService('persistent_notification', 'create', {
       title: 'Demo Service Call',
-      message: `This notification was created by the boilerplate card at ${new Date().toLocaleTimeString()}`,
-      notification_id: 'boilerplate_demo',
+      message: `This notification was created by the prothermclimate card at ${new Date().toLocaleTimeString()}`,
+      notification_id: 'prothermclimate_demo',
     });
+  }
+
+  private _togglePower(ev: Event): void {
+    ev.stopPropagation();
+    this.hass.callService('homeassistant', 'toggle', {
+      entity_id: this.config.heating_switch,
+    });
+    //this.requestUpdate();
   }
 
   private _getConfiguredActions(): string {
@@ -559,6 +654,73 @@ export class BoilerplateCard extends LitElement {
       actions.push(`Double-tap: ${this.config.double_tap_action.action}`);
     }
     return actions.length > 0 ? actions.join(', ') : 'None configured';
+  }
+
+  private _getGaugeData(stateObj: HassEntity): GaugeData {
+    const externalTempEntity = this._getExternalTemperatureEntity();
+    const returnTempEntity = this._getReturnTemperatureEntity();
+    const progressData = calculateprogressPercentage(this.hass, this._getScheduleEntity());
+
+    return {
+      heatingEnabled: (this._getHeatingSwitchEntity()?.state || 'off') === 'on',
+      state: stateObj.state,
+      tempAlarm: (this._getTemperatureAlarmEntity()?.state || 'off') === 'on',
+      pressureAlarm: (this._getPressureAlarmEntity()?.state || 'off') === 'on',
+      targetTemp: this._localTargetTemp ?? stateObj.attributes.temperature,
+      //currentTemp: stateObj.attributes.current_temperature,
+      currentTemp: (this.hass.states['input_number.current_temp']?.state as unknown as number) || 0,
+      outsideTemp: externalTempEntity ? externalTempEntity.state : undefined,
+      returnTemp: returnTempEntity ? returnTempEntity.state : undefined,
+      schedule: progressData,
+    };
+  }
+
+  private _getExternalTemperatureEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.external_temperature_entity) {
+      entity = this.hass.states[this.config.external_temperature_entity];
+    }
+    return entity;
+  }
+
+  private _getHeatingSwitchEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.heating_switch) {
+      entity = this.hass.states[this.config.heating_switch];
+    }
+    return entity;
+  }
+
+  private _getScheduleEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.schedule_entity) {
+      entity = this.hass.states[this.config.schedule_entity];
+    }
+    return entity;
+  }
+
+  private _getTemperatureAlarmEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.temperature_alarm_entity) {
+      entity = this.hass.states[this.config.temperature_alarm_entity];
+    }
+    return entity;
+  }
+
+  private _getPressureAlarmEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.pressure_alarm_entity) {
+      entity = this.hass.states[this.config.pressure_alarm_entity];
+    }
+    return entity;
+  }
+
+  private _getReturnTemperatureEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.return_temperature_entity) {
+      entity = this.hass.states[this.config.return_temperature_entity];
+    }
+    return entity;
   }
 
   // Styles are encapsulated inside the Shadow DOM — they cannot leak out and
@@ -1010,9 +1172,45 @@ export class BoilerplateCard extends LitElement {
       .container {
         padding: 24px;
         text-align: center;
+        transition: all 0.4s ease;
+      }
+      .container.disabled {
+        opacity: 0.4;
+        filter: grayscale(100%);
+        pointer-events: none; /* Prevents clicking the gauge when off */
+        transition: all 0.4s ease;
       }
       .state-off {
         opacity: 0.6;
+      }
+
+      .header-controls {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        z-index: 10;
+      }
+
+      .power-button {
+        cursor: pointer;
+        transition: color 0.3s ease;
+      }
+
+      /* Color when heating is ON */
+      .power-button.on {
+        color: var(--success-color, #4caf50);
+        /* Optional: add a subtle glow */
+        filter: drop-shadow(0 0 3px var(--primary-color));
+      }
+
+      /* Color when heating is OFF */
+      .power-button.off {
+        color: var(--error-color, #f44336);
+      }
+
+      ha-icon-button {
+        --switch-checked-button-color: var(--primary-color);
+        --switch-checked-track-color: var(--primary-color);
       }
 
       .gauge-container {
@@ -1077,7 +1275,8 @@ export class BoilerplateCard extends LitElement {
         left: 50%;
         transform: translate(-50%, -85%);
         width: 100%;
-        margin-top: 10px;
+        margin-top: 12px;
+        pointer-events: none;
       }
 
       .state-label {
@@ -1183,43 +1382,60 @@ export class BoilerplateCard extends LitElement {
         margin-bottom: 2px;
       }
 
+      .label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end; /* This forces everything to sit on the same floor */
+        padding-bottom: 4px; /* Small gap above the progress bar */
+      }
+
       .time-container {
         display: flex;
         position: relative;
-        font-size: 0.7rem; /* Half temperature size */
+        font-size: 0.7rem;
         color: var(--secondary-text-color);
-        width: 0; /* Ensures the colon is the zero-point for alignment */
+        width: 0;
         justify-content: center;
+        align-items: flex-end; /* Align the colon to the bottom */
+        height: 1em; /* Give it a height so 'bottom' has a reference */
+        visibility: visible;
+      }
+
+      .target-text {
+        font-size: 1.4rem; /* Assuming it's double the size of the time */
+        line-height: 1; /* Prevents extra ghost padding at the bottom */
+        font-weight: bold;
+      }
+
+      .time-container.inactive {
+        visibility: hidden;
+      }
+
+      .time-container .hours,
+      .time-container .colon-align,
+      .time-container .minutes {
+        position: absolute;
+        bottom: 0; /* Anchor them to the bottom of the time-container */
+        line-height: 1;
+      }
+
+      .time-container.start .hours {
+        right: 4px;
+      }
+      .time-container.start .minutes {
+        left: 4px;
+      }
+
+      .time-container.end .minutes {
+        right: 4px;
+      }
+      .time-container.end .hours {
+        left: 4px;
       }
 
       /* The Colon sits exactly above the start/end of the bar */
       .colon-align {
         font-weight: bold;
-      }
-
-      /* Position hours and minutes relative to the colon */
-      .time-container.start .hours {
-        position: absolute;
-        right: 4px; /* Space between hour and colon */
-      }
-      .time-container.start .minutes {
-        position: absolute;
-        left: 4px; /* Space between colon and minutes */
-      }
-
-      .time-container.end .minutes {
-        position: absolute;
-        right: 4px;
-      }
-      .time-container.end .hours {
-        position: absolute;
-        left: 4px;
-      }
-
-      .target-text {
-        font-size: 18px;
-        font-weight: bold;
-        white-space: nowrap;
       }
 
       .progress-track {
@@ -1242,7 +1458,7 @@ export class BoilerplateCard extends LitElement {
         align-items: center;
         gap: 12px; /* Space between the two numbers */
         width: 100%;
-        margin-top: 8px;
+        margin-top: 4px;
         font-size: 0.8rem;
         font-weight: 500;
       }
@@ -1265,6 +1481,16 @@ export class BoilerplateCard extends LitElement {
 
       .footer-temp.return.active {
         display: inline; /* Revealed during alarm */
+      }
+
+      .time-remaining {
+        display: flex;
+        position: relative;
+        font-size: 0.7rem; /* Half temperature size */
+        color: var(--secondary-text-color);
+        width: 100%;
+        justify-content: center;
+        margin-top: 2px;
       }
 
       .ebusd-footer {

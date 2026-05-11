@@ -1,8 +1,8 @@
 {
-  "name": "boilerplate-card",
+  "name": "protherm-climate-card",
   "type": "module",
   "version": "2.0.0",
-  "description": "Lovelace boilerplate-card",
+  "description": "Lovelace protherm-climate-card",
   "keywords": [
     "home-assistant",
     "homeassistant",
@@ -11,9 +11,9 @@
     "lovelace",
     "custom-cards"
   ],
-  "module": "boilerplate-card.js",
-  "repository": "git@github.com:custom_cards/boilerplate-card.git",
-  "author": "Ian Richardson <iantrich@gmail.com>",
+  "module": "protherm-climate-card.js",
+  "repository": "git@github.com:bajvoc/protherm-climate-card.git",
+  "author": "Vladimir Padha <vladimir.padha@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "@lit-labs/context": "0.4.1",

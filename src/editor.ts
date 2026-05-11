@@ -2,28 +2,28 @@
 import { LitElement, html, TemplateResult, css } from 'lit';
 import { HomeAssistant, fireEvent, LovelaceCardEditor, ActionConfig } from 'custom-card-helpers';
 
-import { BoilerplateCardConfig } from './types';
+import { ProthermClimateCardConfig } from './types';
 import { customElement, property, state } from 'lit/decorators.js';
 
-@customElement('boilerplate-card-editor')
-export class BoilerplateCardEditor extends LitElement implements LovelaceCardEditor {
+@customElement('protherm-climate-card-editor')
+export class ProthermClimateCardEditor extends LitElement implements LovelaceCardEditor {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @state() private _config?: BoilerplateCardConfig;
+  @state() private _config?: ProthermClimateCardConfig;
 
   @state() private _openSection = 'entity';
 
   private _configValueTarget(
     ev: Event,
-  ): (EventTarget & { configValue?: keyof BoilerplateCardConfig; value?: string; checked?: boolean }) | null {
+  ): (EventTarget & { configValue?: keyof ProthermClimateCardConfig; value?: string; checked?: boolean }) | null {
     return ev.target as EventTarget & {
-      configValue?: keyof BoilerplateCardConfig;
+      configValue?: keyof ProthermClimateCardConfig;
       value?: string;
       checked?: boolean;
     };
   }
 
-  public setConfig(config: BoilerplateCardConfig): void {
+  public setConfig(config: ProthermClimateCardConfig): void {
     // Deep clone and ensure proper action defaults
     this._config = {
       ...structuredClone(config),
@@ -69,6 +69,43 @@ export class BoilerplateCardEditor extends LitElement implements LovelaceCardEdi
           >
             ${entities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
           </ha-select>
+          <ha-textfield
+            label="Heating enabled (Required)"
+            .value=${this._config?.heating_switch || ''}
+            .configValue=${'heating_switch'}
+            required="true"
+            @input=${this._valueChanged}
+          ></ha-textfield>
+          <ha-textfield
+            label="External Temperature Entity (Optional)"
+            .value=${this._config?.external_temperature_entity || ''}
+            .configValue=${'external_temperature_entity'}
+            @input=${this._valueChanged}
+          ></ha-textfield>
+          <ha-textfield
+            label="Return Temperature Entity (Optional)"
+            .value=${this._config?.return_temperature_entity || ''}
+            .configValue=${'return_temperature_entity'}
+            @input=${this._valueChanged}
+          ></ha-textfield>
+          <ha-textfield
+            label="Temperature Alarm Entity (Optional)"
+            .value=${this._config?.temperature_alarm_entity || ''}
+            .configValue=${'temperature_alarm_entity'}
+            @input=${this._valueChanged}
+          ></ha-textfield>
+          <ha-textfield
+            label="Pressure Alarm Entity (Optional)"
+            .value=${this._config?.pressure_alarm_entity || ''}
+            .configValue=${'pressure_alarm_entity'}
+            @input=${this._valueChanged}
+          ></ha-textfield>
+          <ha-textfield
+            label="Schedule Entity (Optional)"
+            .value=${this._config?.schedule_entity || ''}
+            .configValue=${'schedule_entity'}
+            @input=${this._valueChanged}
+          ></ha-textfield>
           <ha-area-picker
             .curValue=${this._config?.area || ''}
             no-add
@@ -286,7 +323,7 @@ export class BoilerplateCardEditor extends LitElement implements LovelaceCardEdi
       return;
     }
     const target = ev.target as any;
-    const configValue = target.configValue as keyof BoilerplateCardConfig;
+    const configValue = target.configValue as keyof ProthermClimateCardConfig;
     if (!configValue) {
       return;
     }
@@ -317,7 +354,7 @@ export class BoilerplateCardEditor extends LitElement implements LovelaceCardEdi
 
     // Handle action updates - ensure we always have a valid action object
     if (newAction && newAction.action) {
-      updatedConfig[configValue as keyof BoilerplateCardConfig] = newAction;
+      updatedConfig[configValue as keyof ProthermClimateCardConfig] = newAction;
     } else {
       // Set appropriate default if action is cleared/invalid
       const defaults = {
@@ -325,7 +362,9 @@ export class BoilerplateCardEditor extends LitElement implements LovelaceCardEdi
         hold_action: { action: 'none' },
         double_tap_action: { action: 'none' },
       };
-      updatedConfig[configValue as keyof BoilerplateCardConfig] = defaults[configValue as keyof typeof defaults] || {
+      updatedConfig[configValue as keyof ProthermClimateCardConfig] = defaults[
+        configValue as keyof typeof defaults
+      ] || {
         action: 'none',
       };
     }
@@ -402,6 +441,6 @@ export class BoilerplateCardEditor extends LitElement implements LovelaceCardEdi
 }
 
 // Explicit element registration as fallback
-if (!customElements.get('boilerplate-card-editor')) {
-  customElements.define('boilerplate-card-editor', BoilerplateCardEditor);
+if (!customElements.get('protherm-climate-card-editor')) {
+  customElements.define('protherm-climate-card-editor', ProthermClimateCardEditor);
 }
