@@ -443,7 +443,7 @@ export class ProthermClimateCard extends LitElement {
   public handleTempClick(ev: MouseEvent): void {
     ev.stopPropagation();
 
-    console.log('Clicked');
+    //console.log('Clicked');
   }
 
   private _callService(domain: string, service: string, serviceData: Record<string, unknown>): void {
@@ -1286,7 +1286,10 @@ export class ProthermClimateCard extends LitElement {
         width: 100%;
         max-width: 280px;
         margin: 0 auto;
+        /* Define this as a container context so children can scale relative to its width */
+        container-type: inline-size;
       }
+
       .gauge {
         fill: none;
         stroke-linecap: round;
@@ -1296,7 +1299,7 @@ export class ProthermClimateCard extends LitElement {
       .gauge.disabled {
         opacity: 0.4;
         filter: grayscale(100%);
-        pointer-events: none; /* Prevents clicking the gauge when off */
+        pointer-events: none;
         transition: all 0.4s ease;
       }
 
@@ -1336,7 +1339,6 @@ export class ProthermClimateCard extends LitElement {
       .invert {
         fill: white;
         fill-opacity: 0.9;
-        /* drop-shadow is the SVG-compatible way to do shadows */
         filter: drop-shadow(0 0 2px black);
       }
 
@@ -1348,47 +1350,47 @@ export class ProthermClimateCard extends LitElement {
         position: absolute;
         top: 50%;
         left: 50%;
-        transform: translate(-50%, -85%);
+        /* Adjusted from -85% to -45% to prevent the text stacking too high on narrow viewports */
+        transform: translate(-50%, -45%);
         width: 100%;
-        margin-top: 12px;
+        margin-top: 0px; /* Removed fixed margin in favor of proportional translate placement */
         pointer-events: none;
       }
 
       .state-label {
-        font-size: 0.8rem;
+        font-size: 6.5cqw; /* Scaled dynamically to container width */
         color: var(--secondary-text-color);
         letter-spacing: 2px;
       }
 
       .temp-display-container {
         display: flex;
-        align-items: flex-end; /* Aligns all three columns to the bottom */
+        align-items: flex-end;
         justify-content: center;
         width: 100%;
       }
 
       .left-alarm,
       .right-alarm {
-        /* Equal widths force the main-temp to the absolute center */
-        flex: 0 0 50px;
-        height: 100%; /* Match container height */
+        flex: 0 0 18cqw; /* Responsive side spacing for alarm icons */
+        height: 100%;
         display: flex;
-        align-items: flex-end; /* Content at the bottom */
+        align-items: flex-end;
       }
 
       .left-alarm {
-        justify-content: flex-end; /* Pushes icon toward the temp */
+        justify-content: flex-end;
       }
 
       .right-alarm {
-        justify-content: flex-start; /* Pushes icon toward the temp */
+        justify-content: flex-start;
       }
 
       .alarm-icon {
         visibility: hidden;
         color: #ff0000;
-        font-size: 30px;
-        line-height: 1; /* Prevents extra vertical space below icon */
+        font-size: 11cqw; /* Proportional icon scaling */
+        line-height: 1;
       }
 
       .alarm-icon.active {
@@ -1409,13 +1411,13 @@ export class ProthermClimateCard extends LitElement {
       }
 
       .main-temp {
-        font-size: 3.5rem;
+        font-size: 22cqw; /* Scaled dynamically to container width */
         font-weight: 300;
         line-height: 1;
         display: flex;
         justify-content: center;
         align-items: baseline;
-        margin: 0 10px;
+        margin: 0 2cqw;
       }
 
       .value {
@@ -1423,23 +1425,24 @@ export class ProthermClimateCard extends LitElement {
         margin: 0px;
         direction: ltr;
       }
+
       .addon {
         display: flex;
         flex-direction: column-reverse;
-        padding: 4px 0px;
+        padding: 1cqw 0px; /* Proportional scaling */
       }
 
       .decimal {
-        font-size: 1.75rem;
+        font-size: 11cqw; /* Exactly half of the main integer text */
         font-weight: 400;
         display: inline-block;
       }
 
       .unit {
-        font-size: 1.1rem;
+        font-size: 7cqw; /* Proportional degree token alignment */
         line-height: 1;
         font-weight: 500;
-        margin-bottom: 2px;
+        margin-bottom: 0.5cqw;
       }
 
       .target-label {

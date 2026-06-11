@@ -1,5 +1,4 @@
 import { ActionConfig, LovelaceCard, LovelaceCardConfig, LovelaceCardEditor } from 'custom-card-helpers';
-import { HassEntity } from 'home-assistant-js-websocket';
 
 declare global {
   interface HTMLElementTagNameMap {

@@ -1,5 +1,5 @@
 import { html, TemplateResult } from 'lit';
-import { GaugeData, ProgressData } from './types';
+import { GaugeData } from './types';
 import { BACKGROUNDCOLOR, MAX, MIN, TOTALLENGTH } from './const';
 import { ProthermClimateCard } from './protherm-climate-card';
 import { calculatePoint } from './protherm-helpers';
