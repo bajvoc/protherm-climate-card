@@ -51,7 +51,11 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
       return html`<div>Loading...</div>`;
     }
 
-    const entities = Object.keys(this.hass.states);
+    const includeDomains = ['sensor', 'binary_sensor', 'switch', 'input_boolean'];
+    const climateEntities = Object.keys(this.hass.states).filter((eid) => eid.startsWith('climate.'));
+    const filteredEntities = Object.keys(this.hass.states).filter((eid) =>
+      includeDomains.some((domain) => eid.startsWith(`${domain}.`)),
+    );
 
     return html`
       ${this._renderSection(
@@ -67,45 +71,90 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
             @change=${this._valueChanged}
             @closed=${(ev: Event) => ev.stopPropagation()}
           >
-            ${entities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+            ${climateEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
           </ha-select>
-          <ha-textfield
+          <ha-select
             label="Heating enabled (Required)"
             .value=${this._config?.heating_switch || ''}
             .configValue=${'heating_switch'}
             required="true"
-            @input=${this._valueChanged}
-          ></ha-textfield>
-          <ha-textfield
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
             label="External Temperature Entity (Optional)"
             .value=${this._config?.external_temperature_entity || ''}
             .configValue=${'external_temperature_entity'}
-            @input=${this._valueChanged}
-          ></ha-textfield>
-          <ha-textfield
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
             label="Return Temperature Entity (Optional)"
             .value=${this._config?.return_temperature_entity || ''}
             .configValue=${'return_temperature_entity'}
-            @input=${this._valueChanged}
-          ></ha-textfield>
-          <ha-textfield
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
             label="Temperature Alarm Entity (Optional)"
             .value=${this._config?.temperature_alarm_entity || ''}
             .configValue=${'temperature_alarm_entity'}
-            @input=${this._valueChanged}
-          ></ha-textfield>
-          <ha-textfield
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
             label="Pressure Alarm Entity (Optional)"
             .value=${this._config?.pressure_alarm_entity || ''}
             .configValue=${'pressure_alarm_entity'}
-            @input=${this._valueChanged}
-          ></ha-textfield>
-          <ha-textfield
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
             label="Schedule Entity (Optional)"
             .value=${this._config?.schedule_entity || ''}
             .configValue=${'schedule_entity'}
-            @input=${this._valueChanged}
-          ></ha-textfield>
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
+            label="Season switch (Optional)"
+            .value=${this._config?.season_entity || ''}
+            .configValue=${'season_entity'}
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
+            label="Monthly consumption (Optional)"
+            .value=${this._config?.monthly_consumption_entity || ''}
+            .configValue=${'monthly_consumption_entity'}
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
+          <ha-select
+            label="Season consumption (Optional)"
+            .value=${this._config?.season_consumption_entity || ''}
+            .configValue=${'season_consumption_entity'}
+            @change=${this._valueChanged}
+            @closed=${(ev: Event) => ev.stopPropagation()}
+          >
+            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
+          </ha-select>
           <ha-area-picker
             .curValue=${this._config?.area || ''}
             no-add
@@ -128,7 +177,7 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
             label="Icon (Optional)"
             @value-changed=${this._valueChanged}
           ></ha-icon-picker>
-          <ha-formfield label="Show Warning">
+          <!--ha-formfield label="Show Warning">
             <ha-switch
               .checked=${this._config?.show_warning ?? false}
               .configValue=${'show_warning'}
@@ -141,122 +190,7 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
               .configValue=${'show_error'}
               @change=${this._valueChanged}
             ></ha-switch>
-          </ha-formfield>
-        `,
-      )}
-      ${this._renderSection(
-        'actions',
-        'Actions',
-        html`
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ ui_action: {} }}
-            .value=${this._config.tap_action}
-            label="Tap Action"
-            .configValue=${'tap_action'}
-            @value-changed=${this._actionChanged}
-          ></ha-selector>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ ui_action: {} }}
-            .value=${this._config.hold_action}
-            label="Hold Action"
-            .configValue=${'hold_action'}
-            @value-changed=${this._actionChanged}
-          ></ha-selector>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ ui_action: {} }}
-            .value=${this._config.double_tap_action}
-            label="Double Tap Action"
-            .configValue=${'double_tap_action'}
-            @value-changed=${this._actionChanged}
-          ></ha-selector>
-        `,
-      )}
-      ${this._renderSection(
-        'appearance',
-        'Appearance',
-        html`
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{
-              select: {
-                options: [
-                  { value: 'default', label: 'Default' },
-                  { value: 'compact', label: 'Compact — condensed spacing' },
-                  { value: 'detailed', label: 'Detailed — larger text & icons' },
-                  { value: 'minimal', label: 'Minimal — entity row only' },
-                ],
-                mode: 'list',
-              },
-            }}
-            .value=${this._config.card_style || 'default'}
-            label="Card Style"
-            .configValue=${'card_style'}
-            @value-changed=${this._selectorChanged}
-          ></ha-selector>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ color_rgb: {} }}
-            .value=${this._config.accent_color || null}
-            label="Accent Color"
-            .configValue=${'accent_color'}
-            @value-changed=${this._selectorChanged}
-          ></ha-selector>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{
-              select: {
-                options: [
-                  { value: 'vertical', label: 'Vertical — stacked (default)' },
-                  { value: 'horizontal', label: 'Horizontal — icon, info & actions in one row' },
-                ],
-                mode: 'list',
-              },
-            }}
-            .value=${this._config.layout || 'vertical'}
-            label="Layout"
-            .configValue=${'layout'}
-            @value-changed=${this._selectorChanged}
-          ></ha-selector>
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{
-              select: {
-                options: [
-                  { value: 'card', label: 'Card — full ha-card with header' },
-                  { value: 'badge', label: 'Badge — compact inline chip' },
-                ],
-                mode: 'list',
-              },
-            }}
-            .value=${this._config.display_mode || 'card'}
-            label="Display Mode"
-            .configValue=${'display_mode'}
-            @value-changed=${this._selectorChanged}
-          ></ha-selector>
-        `,
-      )}
-      ${this._renderSection(
-        'display',
-        'Display',
-        html`
-          <ha-selector
-            .hass=${this.hass}
-            .selector=${{ number: { min: 0, max: 10, step: 1, mode: 'slider' } }}
-            .value=${this._config.attribute_limit ?? 3}
-            label="Attribute Limit"
-            .configValue=${'attribute_limit'}
-            @value-changed=${this._selectorChanged}
-          ></ha-selector>
-          <ha-formfield label="Show Timestamps">
-            <ha-switch
-              .checked=${this._config?.show_timestamps ?? true}
-              .configValue=${'show_timestamps'}
-              @change=${this._valueChanged}
-            ></ha-switch>
-          </ha-formfield>
+          </ha-formfield-->
         `,
       )}
     `;

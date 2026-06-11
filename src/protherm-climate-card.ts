@@ -11,7 +11,6 @@ import {
   computeIcon, // Derives the MDI icon for an entity (falls back to domain default)
   computeName, // Derives the friendly_name for an entity
   computeState, // Returns the human-readable state string (respects unit_of_measurement)
-  formatTimestamp, // Converts an ISO timestamp to a human-friendly relative string
 } from 'custom-card-helpers'; // Community-maintained helpers: https://github.com/custom-cards/custom-card-helpers
 
 // TODO: Replace this import with your own config type once you've defined your fields in types.ts.
@@ -22,7 +21,7 @@ import { actionHandler } from './action-handler-directive';
 import { CARD_VERSION } from './const';
 import { localize } from './localize/localize';
 import { ProthermRenderer } from './protherm-thermostat';
-import { calculateprogressPercentage, calculateTempFromPoint } from './protherm-helpers';
+import { calculateprogressPercentage, calculateTempFromPoint, toPrecission } from './protherm-helpers';
 
 // Styled console banner so your card is easy to spot in the browser console.
 // Stays visible in production — useful for version-mismatch debugging in HA.
@@ -204,8 +203,6 @@ export class ProthermClimateCard extends LitElement {
       ) {
         return this._showError(`Unsupported return temperature entity, device_class must be 'temperature'`);
       }
-    } else {
-      return this._showError(`Return temperature entity not found: ${this.config.return_temperature_entity}`);
     }
     const scheduleStateObj = this._getScheduleEntity();
     if (scheduleStateObj) {
@@ -321,7 +318,6 @@ export class ProthermClimateCard extends LitElement {
   // readable at a glance. Each helper should have a single responsibility.
   private _renderContent(stateObj: HassEntity): TemplateResult {
     const isHorizontal = this.config.layout === 'horizontal';
-    const isMinimal = this.config.card_style === 'minimal';
 
     if (isHorizontal) {
       // Single compact row: icon · name+state · spacer · action buttons
@@ -339,23 +335,9 @@ export class ProthermClimateCard extends LitElement {
       `;
     }
 
-    // Vertical (default) — stacked sections
-    /*const entityRow = html`
-      <div class="entity-row clickable-row" @click=${this._handleEntityClick}>
-        <div class="icon">
-          <ha-icon .icon=${computeIcon(stateObj, this.config.icon)}></ha-icon>
-        </div>
-        <div class="entity-info">
-          <div class="name">${computeName(stateObj)}</div>
-          <div class="state">${computeState(stateObj)}</div>
-        </div>
-        <div class="entity-actions"><div class="toggle-hint">Tap to toggle</div></div>
-      </div>
-    `;*/
     const gaugeData = this._getGaugeData(stateObj);
     const entityRow = ProthermRenderer.renderGaugeContainer(this, gaugeData);
 
-    //${!isMinimal ? this._renderActionButtons(stateObj) : ''}
     return html`
       <div class="card-content">
         <ha-card>
@@ -370,16 +352,7 @@ export class ProthermClimateCard extends LitElement {
           </div>
           ${entityRow}
         </ha-card>
-        ${!isMinimal ? this._renderAttributes(stateObj, this.config.attribute_limit ?? 3) : ''}
-        ${this.config.show_timestamps !== false
-          ? html`
-              <div class="timestamps">
-                <div class="last-changed"><strong>Last Changed:</strong> ${formatTimestamp(stateObj.last_changed)}</div>
-                <div class="last-changed"><strong>Raw Last Changed:</strong> ${stateObj.last_changed}</div>
-                <div class="last-updated"><strong>Last Updated:</strong> ${formatTimestamp(stateObj.last_updated)}</div>
-              </div>
-            `
-          : ''}
+        ${this._renderParams()}
       </div>
     `;
   }
@@ -395,6 +368,14 @@ export class ProthermClimateCard extends LitElement {
     if (this.hass && this.config && ev.detail.action) {
       if (ev.detail.action !== 'tap') {
         handleAction(this, this.hass, this.config, ev.detail.action);
+      } else {
+        const now = new Date();
+        const startTime = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+        const startIso = startTime.toISOString();
+        const endIso = now.toISOString();
+        const entities = [this.config.monthly_consumption_entity, this.config.season_consumption_entity];
+
+        this._navigate(`/history?entity_id=${entities.join(',')}&start_date=${startIso}&end_date=${endIso}`);
       }
     }
   }
@@ -457,6 +438,12 @@ export class ProthermClimateCard extends LitElement {
       temperature: roundedTemp,
     });
     this.requestUpdate();
+  }
+
+  public handleTempClick(ev: MouseEvent): void {
+    ev.stopPropagation();
+
+    console.log('Clicked');
   }
 
   private _callService(domain: string, service: string, serviceData: Record<string, unknown>): void {
@@ -529,6 +516,30 @@ export class ProthermClimateCard extends LitElement {
         )}
       </div>
     `;
+  }
+
+  private _renderParams(): TemplateResult {
+    const seasaon = (this._getSeasonEntity()?.state || 'off') == 'on' ? 'Heating season' : 'Summer season';
+    const monthlyEntity = this._getMonthlyConsumptionEntity();
+    const seasonEntity = this._getSeasonConsumptionEntity();
+
+    return html` <div class="attributes">
+      <strong>${seasaon}</strong>
+      <div class="attribute">
+        <span class="attr-key">${monthlyEntity?.attributes.friendly_name}</span>
+        <div class="attr-value-group">
+          <span class="attr-value">${toPrecission(monthlyEntity?.state || '', 1)}</span>
+          <span class="attr-unit">${monthlyEntity?.attributes.unit_of_measurement}</span>
+        </div>
+      </div>
+      <div class="attribute">
+        <span class="attr-key">${seasonEntity?.attributes.friendly_name}</span>
+        <div class="attr-value-group">
+          <span class="attr-value">${toPrecission(seasonEntity?.state || '', 1)}</span>
+          <span class="attr-unit">${seasonEntity?.attributes.unit_of_measurement}</span>
+        </div>
+      </div>
+    </div>`;
   }
 
   // _renderActionButtons exists purely to demonstrate the different action
@@ -658,20 +669,26 @@ export class ProthermClimateCard extends LitElement {
 
   private _getGaugeData(stateObj: HassEntity): GaugeData {
     const externalTempEntity = this._getExternalTemperatureEntity();
+    const externalTemp = parseFloat(externalTempEntity?.state || '').toFixed(1);
     const returnTempEntity = this._getReturnTemperatureEntity();
+    const returnTemp = parseFloat(returnTempEntity?.state || '').toFixed(1);
+    //const monthlyEntity = this._getMonthlyConsumptionEntity();
+    //const seasonEntity = this._getSeasonConsumptionEntity();
     const progressData = calculateprogressPercentage(this.hass, this._getScheduleEntity());
 
     return {
       heatingEnabled: (this._getHeatingSwitchEntity()?.state || 'off') === 'on',
       state: stateObj.state,
+      //seasaon: (this._getSeasonEntity()?.state || 'off') == 'on' ? 'Heating season' : 'Summer season',
       tempAlarm: (this._getTemperatureAlarmEntity()?.state || 'off') === 'on',
       pressureAlarm: (this._getPressureAlarmEntity()?.state || 'off') === 'on',
       targetTemp: this._localTargetTemp ?? stateObj.attributes.temperature,
-      //currentTemp: stateObj.attributes.current_temperature,
-      currentTemp: (this.hass.states['input_number.current_temp']?.state as unknown as number) || 0,
-      outsideTemp: externalTempEntity ? externalTempEntity.state : undefined,
-      returnTemp: returnTempEntity ? returnTempEntity.state : undefined,
+      currentTemp: stateObj.attributes.current_temperature,
+      outsideTemp: externalTempEntity ? externalTemp : undefined,
+      returnTemp: returnTempEntity ? returnTemp : undefined,
       schedule: progressData,
+      //monthlyConsumption: parseFloat(this._getMonthlyConsumptionEntity()?.state || ''),
+      //seasonConsumption: parseFloat(this._getSeasonConsumptionEntity()?.state || ''),
     };
   }
 
@@ -723,6 +740,29 @@ export class ProthermClimateCard extends LitElement {
     return entity;
   }
 
+  private _getSeasonEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.season_entity) {
+      entity = this.hass.states[this.config.season_entity];
+    }
+    return entity;
+  }
+
+  private _getMonthlyConsumptionEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.monthly_consumption_entity) {
+      entity = this.hass.states[this.config.monthly_consumption_entity];
+    }
+    return entity;
+  }
+
+  private _getSeasonConsumptionEntity(): HassEntity | undefined {
+    let entity = undefined;
+    if (this.config.season_consumption_entity) {
+      entity = this.hass.states[this.config.season_consumption_entity];
+    }
+    return entity;
+  }
   // Styles are encapsulated inside the Shadow DOM — they cannot leak out and
   // external page styles cannot leak in (except for CSS custom properties).
   //
@@ -871,6 +911,15 @@ export class ProthermClimateCard extends LitElement {
         border-radius: 8px;
       }
 
+      .attributes strong {
+        display: block;
+        text-align: center;
+        width: 100%;
+        margin-bottom: 12px; /* Adds space between the header and the first attribute */
+        color: var(--primary-text-color);
+        font-size: 1rem;
+      }
+
       .attribute {
         display: flex;
         justify-content: space-between;
@@ -889,6 +938,25 @@ export class ProthermClimateCard extends LitElement {
       .attr-value {
         font-weight: 500;
         color: var(--primary-text-color);
+        align-items: center;
+      }
+
+      .attr-value-group {
+        display: flex;
+        align-items: baseline;
+        justify-content: flex-end;
+        text-align: right;
+      }
+
+      .attr-value {
+        font-weight: 500;
+        color: var(--primary-text-color);
+      }
+
+      .attr-unit {
+        font-size: 0.85em;
+        color: var(--secondary-text-color);
+        margin-left: 4px; /* Space between the number and the unit */
       }
 
       /* Action buttons styling */
@@ -1225,6 +1293,13 @@ export class ProthermClimateCard extends LitElement {
         overflow: visible;
       }
 
+      .gauge.disabled {
+        opacity: 0.4;
+        filter: grayscale(100%);
+        pointer-events: none; /* Prevents clicking the gauge when off */
+        transition: all 0.4s ease;
+      }
+
       .gauge-track-bg {
         stroke-width: 8;
         fill: none;
@@ -1377,16 +1452,17 @@ export class ProthermClimateCard extends LitElement {
       .label-row {
         display: flex;
         justify-content: space-between;
-        align-items: center;
+        align-items: flex-end;
         width: 120px;
         margin-bottom: 2px;
+        padding-bottom: 4px;
       }
 
-      .label-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end; /* This forces everything to sit on the same floor */
-        padding-bottom: 4px; /* Small gap above the progress bar */
+      .label-row.disabled {
+        opacity: 0.4;
+        filter: grayscale(100%);
+        pointer-events: none; /* Prevents clicking the gauge when off */
+        transition: all 0.4s ease;
       }
 
       .time-container {
@@ -1446,6 +1522,13 @@ export class ProthermClimateCard extends LitElement {
         overflow: hidden;
       }
 
+      .progress-track.disabled {
+        opacity: 0.4;
+        filter: grayscale(100%);
+        pointer-events: none; /* Prevents clicking the gauge when off */
+        transition: all 0.4s ease;
+      }
+
       .progress-fill {
         height: 100%;
         background-color: #4caf50;
@@ -1491,6 +1574,13 @@ export class ProthermClimateCard extends LitElement {
         width: 100%;
         justify-content: center;
         margin-top: 2px;
+      }
+
+      .time-remaining.disabled {
+        opacity: 0.4;
+        filter: grayscale(100%);
+        pointer-events: none; /* Prevents clicking the gauge when off */
+        transition: all 0.4s ease;
       }
 
       .ebusd-footer {

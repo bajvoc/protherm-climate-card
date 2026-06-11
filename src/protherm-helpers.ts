@@ -53,14 +53,14 @@ export const calculateprogressPercentage = (
     }
   | undefined => {
   if (!currentSchedule || !currentSchedule.attributes) {
-    //console.warn('Current schedule entity is missing or has no attributes');
-    return {
+    console.warn('Current schedule entity is missing or has no attributes');
+    /*return {
       progress: 43,
       start: '09:00',
       end: '14:00',
       next_trigger: relativeTime(new Date('2026-05-08T15:00:00+02:00'), hass.locale),
-    };
-    //return undefined;
+    };*/
+    return undefined;
   }
 
   const timeSlot = currentSchedule.attributes.timeslots[currentSchedule.attributes.current_slot];
@@ -113,4 +113,17 @@ export const toShortTime = (timeStr: string | undefined): string => {
 export const getMinutes = (str: string): number => {
   const [h, m] = str.split(':').map(Number);
   return h * 60 + m;
+};
+
+export const toPrecission = (number: string, precision?: number): string => {
+  const parts = number.split('.');
+  return parts[0] + '.' + parts[1].slice(0, precision || 0);
+};
+
+export const lastHours = (hours: number): number => {
+  return hours * 60 * 60 * 1000;
+};
+
+export const lastDays = (days: number): number => {
+  return days * lastHours(24);
 };

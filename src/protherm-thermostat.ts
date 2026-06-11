@@ -7,7 +7,7 @@ import { calculatePoint } from './protherm-helpers';
 export class ProthermRenderer {
   public static renderGaugeContainer(card: ProthermClimateCard, gaugeData: GaugeData): TemplateResult {
     return html`
-      <div class="container ${gaugeData.heatingEnabled ? '' : 'disabled'}">
+      <div class="container">
         <div class="gauge-container">
           ${ProthermRenderer._renderGauge(gaugeData, card)}
 
@@ -34,7 +34,7 @@ export class ProthermRenderer {
     const targetPos = calculatePoint(gaugeData.targetTemp, MIN, MAX);
 
     return html`
-      <svg viewBox="0 0 100 100" class="gauge">
+      <svg viewBox="0 0 100 100" class="gauge ${gaugeData.heatingEnabled ? '' : 'disabled'}">
         <path
           class="gauge-track-bg"
           d="M 21.716 78.284 A 40 40 0 1 1 78.284 78.284"
@@ -77,8 +77,7 @@ export class ProthermRenderer {
       </div>
 
       <div class="target-label">
-        ${ProthermRenderer._renderSchedule(gaugeData.schedule, gaugeData.targetTemp)}
-        ${ProthermRenderer._renderTimeRemaining(gaugeData.schedule)}
+        ${ProthermRenderer._renderSchedule(gaugeData)} ${ProthermRenderer._renderTimeRemaining(gaugeData)}
         ${ProthermRenderer._renderTempFooter(gaugeData.tempAlarm, gaugeData.outsideTemp, gaugeData.returnTemp)}
       </div>`;
   }
@@ -111,14 +110,16 @@ export class ProthermRenderer {
       </div>`;
   }
 
-  private static _renderSchedule(progressData: ProgressData | undefined, targetTemp: number): TemplateResult {
-    return html`<div class="label-row">
+  private static _renderSchedule(gaugeData: GaugeData): TemplateResult {
+    const progressData = gaugeData.schedule;
+    const targetTemp = gaugeData.targetTemp;
+    return html`<div class="label-row ${gaugeData.heatingEnabled ? '' : 'disabled'}">
         ${ProthermRenderer._renderScheduleStartEnd('start', progressData?.start)}
         <span class="target-text"> ${targetTemp}°C </span>
         ${ProthermRenderer._renderScheduleStartEnd('end', progressData?.end)}
       </div>
 
-      ${ProthermRenderer._renderScheduleProgress(progressData?.progress)}`;
+      ${ProthermRenderer._renderScheduleProgress(gaugeData)}`;
   }
 
   private static _renderScheduleStartEnd(type: 'start' | 'end', timeStr: string | undefined): TemplateResult {
@@ -133,10 +134,11 @@ export class ProthermRenderer {
     `;
   }
 
-  private static _renderScheduleProgress(progress: number | undefined): TemplateResult {
+  private static _renderScheduleProgress(gaugeData: GaugeData): TemplateResult {
+    const progress = gaugeData.schedule?.progress;
     if (!progress) return html``;
 
-    return html`<div class="progress-track">
+    return html`<div class="progress-track ${gaugeData.heatingEnabled ? '' : 'disabled'}">
       <div class="progress-fill" style="width: ${progress}%"></div>
     </div>`;
   }
@@ -154,11 +156,12 @@ export class ProthermRenderer {
     </div>`;
   }
 
-  private static _renderTimeRemaining(schedule: ProgressData | undefined): TemplateResult {
+  private static _renderTimeRemaining(gaugeData: GaugeData): TemplateResult {
+    const schedule = gaugeData.schedule;
     if (!schedule || !schedule.next_trigger) return html``;
 
     const nextTrigger = schedule?.next_trigger || '';
-    return html` <div class="time-remaining">
+    return html` <div class="time-remaining ${gaugeData.heatingEnabled ? '' : 'disabled'}">
       <div class="last-updated">${nextTrigger}</div>
     </div>`;
   }

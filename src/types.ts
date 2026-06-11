@@ -22,6 +22,9 @@ export interface ProthermClimateCardConfig extends LovelaceCardConfig {
   return_temperature_entity?: string;
   temperature_alarm_entity?: string;
   pressure_alarm_entity?: string;
+  season_entity?: string;
+  monthly_consumption_entity?: string;
+  season_consumption_entity?: string;
   area?: string;
   icon?: string;
   tap_action?: ActionConfig;
@@ -41,6 +44,7 @@ export interface ProthermClimateCardConfig extends LovelaceCardConfig {
 
 export interface GaugeData {
   heatingEnabled: boolean;
+  //seasaon: string;
   state: string;
   tempAlarm: boolean;
   pressureAlarm: boolean;
@@ -49,6 +53,8 @@ export interface GaugeData {
   outsideTemp?: string;
   returnTemp?: string;
   schedule?: ProgressData;
+  //monthlyConsumption: number;
+  //seasonConsumption: number;
 }
 
 export interface ProgressData {
