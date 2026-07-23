@@ -1,23 +1,22 @@
 import { html, TemplateResult } from 'lit';
-import { GaugeData } from './types';
-import { BACKGROUNDCOLOR, MAX, MIN, TOTALLENGTH } from './const';
+//import { ProthermData } from './types';
+import { ProthermData } from './protherm-types';
+import { BACKGROUNDCOLOR, MAX, MIN, RADIUS, TOTALLENGTH } from './const';
 import { ProthermClimateCard } from './protherm-climate-card';
 import { calculatePoint } from './protherm-helpers';
 
 export class ProthermRenderer {
-  public static renderGaugeContainer(card: ProthermClimateCard, gaugeData: GaugeData): TemplateResult {
+  public static renderGaugeContainer(card: ProthermClimateCard, gaugeData: ProthermData): TemplateResult {
     return html`
       <div class="container">
-        <div class="gauge-container">
-          ${ProthermRenderer._renderGauge(gaugeData, card)}
+        <div class="gauge-container">${ProthermRenderer._renderGauge(gaugeData, card)}</div>
 
-          <div class="gauge-center">${ProthermRenderer._renderGaugeInfo(gaugeData)}</div>
-        </div>
+        <div class="gauge-center">${ProthermRenderer._renderGaugeInfo(gaugeData)}</div>
       </div>
     `;
   }
 
-  private static _renderGauge(gaugeData: GaugeData, card: ProthermClimateCard): TemplateResult {
+  private static _renderGauge(gaugeData: ProthermData, card: ProthermClimateCard): TemplateResult {
     const isOff = gaugeData.state === 'off';
     const isHeating = gaugeData.state === 'heat';
     const activeColor = isOff ? '#727272' : 'var(--energy-members-color, #ff9800)';
@@ -33,8 +32,9 @@ export class ProthermRenderer {
     const currentPos = calculatePoint(gaugeData.currentTemp, MIN, MAX);
     const targetPos = calculatePoint(gaugeData.targetTemp, MIN, MAX);
 
+    console.warn(`Min: ${MIN} Max: ${MAX} Size: ${100} Radius:${RADIUS} TotalLength: ${TOTALLENGTH}`);
     return html`
-      <svg viewBox="0 0 100 100" class="gauge ${gaugeData.heatingEnabled ? '' : 'disabled'}">
+      <svg viewBox="0 0 100 100" class="gauge ${gaugeData.enabled ? '' : 'disabled'}">
         <path
           class="gauge-track-bg"
           d="M 21.716 78.284 A 40 40 0 1 1 78.284 78.284"
@@ -69,7 +69,7 @@ export class ProthermRenderer {
     `;
   }
 
-  private static _renderGaugeInfo(gaugeData: GaugeData): TemplateResult {
+  private static _renderGaugeInfo(gaugeData: ProthermData): TemplateResult {
     return html`<div class="state-label">${gaugeData.state.toUpperCase()}</div>
 
       <div class="temp-display-container">
@@ -110,10 +110,10 @@ export class ProthermRenderer {
       </div>`;
   }
 
-  private static _renderSchedule(gaugeData: GaugeData): TemplateResult {
+  private static _renderSchedule(gaugeData: ProthermData): TemplateResult {
     const progressData = gaugeData.schedule;
     const targetTemp = gaugeData.targetTemp;
-    return html`<div class="label-row ${gaugeData.heatingEnabled ? '' : 'disabled'}">
+    return html`<div class="label-row ${gaugeData.enabled ? '' : 'disabled'}">
         ${ProthermRenderer._renderScheduleStartEnd('start', progressData?.start)}
         <span class="target-text"> ${targetTemp}°C </span>
         ${ProthermRenderer._renderScheduleStartEnd('end', progressData?.end)}
@@ -134,11 +134,11 @@ export class ProthermRenderer {
     `;
   }
 
-  private static _renderScheduleProgress(gaugeData: GaugeData): TemplateResult {
+  private static _renderScheduleProgress(gaugeData: ProthermData): TemplateResult {
     const progress = gaugeData.schedule?.progress;
     if (!progress) return html``;
 
-    return html`<div class="progress-track ${gaugeData.heatingEnabled ? '' : 'disabled'}">
+    return html`<div class="progress-track ${gaugeData.enabled ? '' : 'disabled'}">
       <div class="progress-fill" style="width: ${progress}%"></div>
     </div>`;
   }
@@ -156,12 +156,12 @@ export class ProthermRenderer {
     </div>`;
   }
 
-  private static _renderTimeRemaining(gaugeData: GaugeData): TemplateResult {
+  private static _renderTimeRemaining(gaugeData: ProthermData): TemplateResult {
     const schedule = gaugeData.schedule;
     if (!schedule || !schedule.next_trigger) return html``;
 
     const nextTrigger = schedule?.next_trigger || '';
-    return html` <div class="time-remaining ${gaugeData.heatingEnabled ? '' : 'disabled'}">
+    return html` <div class="time-remaining ${gaugeData.enabled ? '' : 'disabled'}">
       <div class="last-updated">${nextTrigger}</div>
     </div>`;
   }

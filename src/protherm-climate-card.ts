@@ -14,14 +14,15 @@ import {
 } from 'custom-card-helpers'; // Community-maintained helpers: https://github.com/custom-cards/custom-card-helpers
 
 // TODO: Replace this import with your own config type once you've defined your fields in types.ts.
-import type { GaugeData, ProthermClimateCardConfig } from './types';
+import type { ProthermClimateCardConfig } from './types';
 
 // Local action-handler directive — provides tap / hold / double-tap gesture support.
 import { actionHandler } from './action-handler-directive';
 import { CARD_VERSION } from './const';
 import { localize } from './localize/localize';
-import { ProthermRenderer } from './protherm-thermostat';
 import { calculateprogressPercentage, calculateTempFromPoint, toPrecission } from './protherm-helpers';
+import { ProthermData } from './protherm-types';
+import './protherm-gauge';
 
 // Styled console banner so your card is easy to spot in the browser console.
 // Stays visible in production — useful for version-mismatch debugging in HA.
@@ -336,15 +337,15 @@ export class ProthermClimateCard extends LitElement {
     }
 
     const gaugeData = this._getGaugeData(stateObj);
-    const entityRow = ProthermRenderer.renderGaugeContainer(this, gaugeData);
+    const entityRow = html`<protherm-gauge .config=${gaugeData}></protherm-gauge>`;
 
     return html`
       <div class="card-content">
         <ha-card>
           <div class="header-controls">
             <ha-icon-button
-              class="power-button ${gaugeData.heatingEnabled ? 'on' : 'off'}"
-              .label=${gaugeData.heatingEnabled ? 'Turn Off' : 'Turn On'}
+              class="power-button ${gaugeData.enabled ? 'on' : 'off'}"
+              .label=${gaugeData.enabled ? 'Turn Off' : 'Turn On'}
               @click=${this._togglePower}
             >
               <ha-icon icon="mdi:power"></ha-icon>
@@ -667,7 +668,7 @@ export class ProthermClimateCard extends LitElement {
     return actions.length > 0 ? actions.join(', ') : 'None configured';
   }
 
-  private _getGaugeData(stateObj: HassEntity): GaugeData {
+  private _getGaugeData(stateObj: HassEntity): ProthermData {
     const externalTempEntity = this._getExternalTemperatureEntity();
     const externalTemp = parseFloat(externalTempEntity?.state || '').toFixed(1);
     const returnTempEntity = this._getReturnTemperatureEntity();
@@ -677,7 +678,7 @@ export class ProthermClimateCard extends LitElement {
     const progressData = calculateprogressPercentage(this.hass, this._getScheduleEntity());
 
     return {
-      heatingEnabled: (this._getHeatingSwitchEntity()?.state || 'off') === 'on',
+      enabled: (this._getHeatingSwitchEntity()?.state || 'off') === 'on',
       state: stateObj.state,
       //seasaon: (this._getSeasonEntity()?.state || 'off') == 'on' ? 'Heating season' : 'Summer season',
       tempAlarm: (this._getTemperatureAlarmEntity()?.state || 'off') === 'on',
@@ -1236,21 +1237,6 @@ export class ProthermClimateCard extends LitElement {
           justify-content: flex-start;
         }
       }
-      /* ── Protherm ─────────────────────────────────────────── */
-      .container {
-        padding: 24px;
-        text-align: center;
-        transition: all 0.4s ease;
-      }
-      .container.disabled {
-        opacity: 0.4;
-        filter: grayscale(100%);
-        pointer-events: none; /* Prevents clicking the gauge when off */
-        transition: all 0.4s ease;
-      }
-      .state-off {
-        opacity: 0.6;
-      }
 
       .header-controls {
         position: absolute;
@@ -1264,14 +1250,11 @@ export class ProthermClimateCard extends LitElement {
         transition: color 0.3s ease;
       }
 
-      /* Color when heating is ON */
       .power-button.on {
         color: var(--success-color, #4caf50);
-        /* Optional: add a subtle glow */
         filter: drop-shadow(0 0 3px var(--primary-color));
       }
 
-      /* Color when heating is OFF */
       .power-button.off {
         color: var(--error-color, #f44336);
       }
@@ -1279,318 +1262,6 @@ export class ProthermClimateCard extends LitElement {
       ha-icon-button {
         --switch-checked-button-color: var(--primary-color);
         --switch-checked-track-color: var(--primary-color);
-      }
-
-      .gauge-container {
-        position: relative;
-        width: 100%;
-        max-width: 280px;
-        margin: 0 auto;
-        /* Define this as a container context so children can scale relative to its width */
-        container-type: inline-size;
-      }
-
-      .gauge {
-        fill: none;
-        stroke-linecap: round;
-        overflow: visible;
-      }
-
-      .gauge.disabled {
-        opacity: 0.4;
-        filter: grayscale(100%);
-        pointer-events: none;
-        transition: all 0.4s ease;
-      }
-
-      .gauge-track-bg {
-        stroke-width: 8;
-        fill: none;
-        opacity: 1;
-      }
-
-      .gauge-track {
-        stroke-width: 8;
-        fill: none;
-        stroke-linecap: round;
-        transition: stroke-dasharray 0.5s ease;
-        opacity: 0.5;
-        visibility: hidden;
-      }
-
-      .gauge-bridge {
-        stroke-width: 8;
-        fill: none;
-        stroke-linecap: round;
-        opacity: 1;
-        transition: stroke-dasharray 0.5s ease;
-        visibility: hidden;
-      }
-
-      .heating {
-        visibility: visible;
-      }
-
-      .target-marker {
-        fill: var(--ha-card-background, var(--card-background-color, white));
-        stroke-width: 1;
-      }
-
-      .invert {
-        fill: white;
-        fill-opacity: 0.9;
-        filter: drop-shadow(0 0 2px black);
-      }
-
-      .current-marker {
-        transition: all 0.3s ease;
-      }
-
-      .gauge-center {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        /* Adjusted from -85% to -45% to prevent the text stacking too high on narrow viewports */
-        transform: translate(-50%, -45%);
-        width: 100%;
-        margin-top: 0px; /* Removed fixed margin in favor of proportional translate placement */
-        pointer-events: none;
-      }
-
-      .state-label {
-        font-size: 6.5cqw; /* Scaled dynamically to container width */
-        color: var(--secondary-text-color);
-        letter-spacing: 2px;
-      }
-
-      .temp-display-container {
-        display: flex;
-        align-items: flex-end;
-        justify-content: center;
-        width: 100%;
-      }
-
-      .left-alarm,
-      .right-alarm {
-        flex: 0 0 18cqw; /* Responsive side spacing for alarm icons */
-        height: 100%;
-        display: flex;
-        align-items: flex-end;
-      }
-
-      .left-alarm {
-        justify-content: flex-end;
-      }
-
-      .right-alarm {
-        justify-content: flex-start;
-      }
-
-      .alarm-icon {
-        visibility: hidden;
-        color: #ff0000;
-        font-size: 11cqw; /* Proportional icon scaling */
-        line-height: 1;
-      }
-
-      .alarm-icon.active {
-        visibility: visible;
-        animation: alarm-flash 0.8s infinite;
-      }
-
-      @keyframes alarm-flash {
-        0% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.2;
-        }
-        100% {
-          opacity: 1;
-        }
-      }
-
-      .main-temp {
-        font-size: 22cqw; /* Scaled dynamically to container width */
-        font-weight: 300;
-        line-height: 1;
-        display: flex;
-        justify-content: center;
-        align-items: baseline;
-        margin: 0 2cqw;
-      }
-
-      .value {
-        display: flex;
-        margin: 0px;
-        direction: ltr;
-      }
-
-      .addon {
-        display: flex;
-        flex-direction: column-reverse;
-        padding: 1cqw 0px; /* Proportional scaling */
-      }
-
-      .decimal {
-        font-size: 11cqw; /* Exactly half of the main integer text */
-        font-weight: 400;
-        display: inline-block;
-      }
-
-      .unit {
-        font-size: 7cqw; /* Proportional degree token alignment */
-        line-height: 1;
-        font-weight: 500;
-        margin-bottom: 0.5cqw;
-      }
-
-      .target-label {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 100%;
-      }
-
-      .label-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
-        width: 120px;
-        margin-bottom: 2px;
-        padding-bottom: 4px;
-      }
-
-      .label-row.disabled {
-        opacity: 0.4;
-        filter: grayscale(100%);
-        pointer-events: none; /* Prevents clicking the gauge when off */
-        transition: all 0.4s ease;
-      }
-
-      .time-container {
-        display: flex;
-        position: relative;
-        font-size: 0.7rem;
-        color: var(--secondary-text-color);
-        width: 0;
-        justify-content: center;
-        align-items: flex-end; /* Align the colon to the bottom */
-        height: 1em; /* Give it a height so 'bottom' has a reference */
-        visibility: visible;
-      }
-
-      .target-text {
-        font-size: 1.4rem; /* Assuming it's double the size of the time */
-        line-height: 1; /* Prevents extra ghost padding at the bottom */
-        font-weight: bold;
-      }
-
-      .time-container.inactive {
-        visibility: hidden;
-      }
-
-      .time-container .hours,
-      .time-container .colon-align,
-      .time-container .minutes {
-        position: absolute;
-        bottom: 0; /* Anchor them to the bottom of the time-container */
-        line-height: 1;
-      }
-
-      .time-container.start .hours {
-        right: 4px;
-      }
-      .time-container.start .minutes {
-        left: 4px;
-      }
-
-      .time-container.end .minutes {
-        right: 4px;
-      }
-      .time-container.end .hours {
-        left: 4px;
-      }
-
-      /* The Colon sits exactly above the start/end of the bar */
-      .colon-align {
-        font-weight: bold;
-      }
-
-      .progress-track {
-        width: 120px;
-        height: 4px;
-        background-color: rgba(255, 255, 255, 0.1);
-        border-radius: 2px;
-        overflow: hidden;
-      }
-
-      .progress-track.disabled {
-        opacity: 0.4;
-        filter: grayscale(100%);
-        pointer-events: none; /* Prevents clicking the gauge when off */
-        transition: all 0.4s ease;
-      }
-
-      .progress-fill {
-        height: 100%;
-        background-color: #4caf50;
-        transition: width 0.5s ease;
-      }
-
-      .temp-footer {
-        display: flex;
-        justify-content: center; /* This centers the group */
-        align-items: center;
-        gap: 12px; /* Space between the two numbers */
-        width: 100%;
-        margin-top: 4px;
-        font-size: 0.8rem;
-        font-weight: 500;
-      }
-
-      .footer-temp {
-        line-height: 1;
-        white-space: nowrap;
-      }
-
-      /* Outside Temp: Always visible and Blue */
-      .footer-temp.outside {
-        color: #448aff; /* Nice vibrant blue */
-      }
-
-      /* Return Temp: Red and only shown during alarm */
-      .footer-temp.return {
-        display: none; /* Use display:none so 'outside' can take the center spot */
-        color: #ff4444; /* Red */
-      }
-
-      .footer-temp.return.active {
-        display: inline; /* Revealed during alarm */
-      }
-
-      .time-remaining {
-        display: flex;
-        position: relative;
-        font-size: 0.7rem; /* Half temperature size */
-        color: var(--secondary-text-color);
-        width: 100%;
-        justify-content: center;
-        margin-top: 2px;
-      }
-
-      .time-remaining.disabled {
-        opacity: 0.4;
-        filter: grayscale(100%);
-        pointer-events: none; /* Prevents clicking the gauge when off */
-        transition: all 0.4s ease;
-      }
-
-      .ebusd-footer {
-        margin-top: 25px;
-        padding-top: 15px;
-        border-top: 1px solid var(--divider-color);
-        font-size: 0.9rem;
       }
     `;
   }

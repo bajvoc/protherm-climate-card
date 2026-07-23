@@ -41,7 +41,7 @@ export interface ProthermClimateCardConfig extends LovelaceCardConfig {
   attribute_limit?: number;
 }
 
-export interface GaugeData {
+/*export interface GaugeData {
   heatingEnabled: boolean;
   //seasaon: string;
   state: string;
@@ -61,4 +61,4 @@ export interface ProgressData {
   start: string;
   end: string;
   next_trigger: string;
-}
+}*/
