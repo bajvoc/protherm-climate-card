@@ -104,9 +104,15 @@ export class ProthermMultiSlider extends LitElement {
       { value: max, pos: this._valueToPercent(max) },
     ];
 
+    //console.log(`render: left: ${min}%; width: ${max - min}%`);
+    //console.log(`render: min pointer: ${JSON.stringify(pointers[0])}`);
     return html`
       <div class="slider-container">
         <div class="slider-track"></div>
+
+        <!-- Active range line between min and max (always blue) -->
+        <div class="slider-range-fill" style="left: ${pointers[0].pos}%; right: ${100 - pointers[2].pos}%"></div>
+
         ${pointers.map(
           (slider, index) => html`
             <div
@@ -118,9 +124,9 @@ export class ProthermMultiSlider extends LitElement {
         )}
       </div>
       <div class="result-container">
-        <div>Min: ${min}°C</div>
-        <div>Comfort: ${comfort}°C</div>
-        <div>Max: ${max}°C</div>
+        <div>Min: ${(min ?? 0).toFixed(1)} °C</div>
+        <div>Comfort: ${(comfort ?? 0).toFixed(1)} °C</div>
+        <div>Max: ${(max ?? 0).toFixed(1)} °C</div>
       </div>
     `;
   }
@@ -142,15 +148,27 @@ export class ProthermMultiSlider extends LitElement {
         width: 100%;
         height: 6px;
         transform: translateY(-50%);
-        background-color: var(--secondary-background-color, #ddd);
+        background: linear-gradient(to right, #0066cc, #ff3300);
         border-radius: 3px;
+        z-index: 0;
+      }
+      .slider-range-fill {
+        position: absolute;
+        top: 50%;
+        height: 6px;
+        transform: translateY(-50%);
+        background-color: #0088ff;
+        box-shadow: 0 0 4px rgba(0, 136, 255, 0.6);
+        border-radius: 4px;
+        z-index: 1;
+        pointer-events: none;
       }
       .slider-pointer {
         position: absolute;
         top: 50%;
         transform: translate(-50%, -50%);
-        width: 22px;
-        height: 22px;
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
         background-color: var(--primary-color, #0066cc);
         border: 2px solid white;
@@ -159,7 +177,7 @@ export class ProthermMultiSlider extends LitElement {
         z-index: 2;
       }
       .slider-pointer:hover {
-        transform: translate(-50%, -50%) scale(1.1);
+        transform: translate(-50%, -50%) scale(1.15);
       }
       .result-container {
         display: flex;
