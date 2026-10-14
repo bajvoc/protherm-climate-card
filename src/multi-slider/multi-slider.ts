@@ -6,22 +6,19 @@ import { ProthermClimateCardConfig } from '../types';
 
 @customElement('multi-slider')
 export class ProthermMultiSlider extends LitElement {
-  //@property({ type: Object }) hass: any;
   @property({ attribute: false }) config!: ProthermClimateCardConfig;
 
-  // Temperature scale boundaries
   private minLimit = MIN_TEMPERATURE;
   private maxLimit = MAX_TEMPERATURE;
 
   @state() private _activeIndex: number | null = null;
 
   private _valueToPercent(val: number): number {
-    return ((val - this.minLimit) / (this.maxLimit - this.minLimit)) * 100;
+    return ((val - MIN_TEMPERATURE) / (MAX_TEMPERATURE - MIN_TEMPERATURE)) * 100;
   }
 
   private _percentToValue(percent: number): number {
-    const raw = this.minLimit + (percent / 100) * (this.maxLimit - this.minLimit);
-    // Round to nearest 0.5 step for heat pump precision
+    const raw = MIN_TEMPERATURE + (percent / 100) * (MAX_TEMPERATURE - MIN_TEMPERATURE);
     return Math.round(raw * 2) / 2;
   }
 
@@ -34,59 +31,54 @@ export class ProthermMultiSlider extends LitElement {
   }
 
   private _onPointerMove = (e: PointerEvent) => {
-    if (this._activeIndex === null) return;
+    if (this._activeIndex === null) {
+      console.warn('Pointer move event received but no active index is set.');
+      return;
+    }
 
     const container = this.shadowRoot?.querySelector('.slider-container');
-    if (!container) return;
+    if (!container) {
+      console.warn('slider-container not found');
+      return;
+    }
+
     const rect = container.getBoundingClientRect();
     const offsetX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const percent = (offsetX / rect.width) * 100;
+    const min = this.config?.min_temperature ?? MIN_TEMPERATURE;
+    const comfort = this.config?.comfort_temperature ?? COMFORT_TEMPERATURE;
+    const max = this.config?.max_temperature ?? MAX_TEMPERATURE;
     let newValue = this._percentToValue(percent);
     let configValue = '';
-    let min = this.config?.min_temperature ?? MIN_TEMPERATURE;
-    let comfort = this.config?.comfort_temperature ?? COMFORT_TEMPERATURE;
-    let max = this.config?.max_temperature ?? MAX_TEMPERATURE;
 
     // Enforce strict hierarchical boundaries (min <= comfort <= max)
     switch (this._activeIndex) {
       case 0:
         configValue = 'min_temperature';
-        min = newValue = Math.max(this.minLimit, Math.min(newValue, comfort));
+        newValue = Math.max(MIN_TEMPERATURE, Math.min(newValue, comfort));
         break;
       case 1:
         configValue = 'comfort_temperature';
-        comfort = newValue = Math.max(min, Math.min(newValue, max));
+        newValue = Math.max(min, Math.min(newValue, max));
         break;
       case 2:
         configValue = 'max_temperature';
-        max = newValue = Math.max(comfort, Math.min(newValue, this.maxLimit));
+        newValue = Math.max(comfort, Math.min(newValue, MAX_TEMPERATURE));
         break;
       default:
         break;
     }
-    /*if (this._activeIndex === 0) {
-      // Min pointer cannot exceed comfort
-      
-      min = newValue;
-    } else if (this._activeIndex === 1) {
-      // Comfort pointer must stay between min and max
-      
-      comfort = newValue;
-    } else if (this._activeIndex === 2) {
-      // Max pointer cannot drop below comfort
-      
-      max = newValue;
-    }*/
+    // checks is empty string
+    if (configValue?.length) {
+      //console.log(`_onPointerMove: configValue ${configValue} min ${min}, comfort ${comfort}, max ${max}`);
+      this.config = {
+        ...this.config,
+        [configValue]: newValue,
+      };
 
-    console.log(`_onPointerMove: _activeIndex ${this._activeIndex} min ${min}, comfort ${comfort}, max ${max}`);
-    this.config = {
-      ...this.config,
-      min_temperature: min,
-      comfort_temperature: comfort,
-      max_temperature: max,
-    };
-
-    fireEvent(this, 'config-changed', { config: this.config });
+      fireEvent(this, 'config-changed', { config: this.config });
+      this.requestUpdate();
+    }
   };
 
   private _onPointerUp = () => {
@@ -96,7 +88,6 @@ export class ProthermMultiSlider extends LitElement {
   };
 
   protected override firstUpdated(): void {
-    console.log(`firstUpdated: called`);
     if (!this.config) {
       throw new Error('Config not initialized');
     }
@@ -113,7 +104,6 @@ export class ProthermMultiSlider extends LitElement {
       { value: max, pos: this._valueToPercent(max) },
     ];
 
-    console.log(`render: called`);
     return html`
       <div class="slider-container">
         <div class="slider-track"></div>
@@ -145,7 +135,6 @@ export class ProthermMultiSlider extends LitElement {
         cursor: pointer;
         touch-action: none;
       }
-
       .slider-track {
         position: absolute;
         top: 50%;
@@ -169,9 +158,14 @@ export class ProthermMultiSlider extends LitElement {
         cursor: pointer;
         z-index: 2;
       }
-
       .slider-pointer:hover {
         transform: translate(-50%, -50%) scale(1.1);
+      }
+      .result-container {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-size: 12px;
       }
     `;
   }
