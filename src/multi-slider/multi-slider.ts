@@ -1,7 +1,7 @@
 import { LitElement, html, css, CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { fireEvent } from 'custom-card-helpers';
-import { MIN_TEMPERATURE, MAX_TEMPERATURE, COMFORT_TEMPERATURE } from './const';
+import { MIN_TEMPERATURE, MAX_TEMPERATURE, COMFORT_TEMPERATURE, IDX_MIN, IDX_MAX } from './const';
 import { ProthermClimateCardConfig } from '../types';
 
 @customElement('multi-slider')
@@ -110,23 +110,23 @@ export class ProthermMultiSlider extends LitElement {
       <div class="slider-container">
         <div class="slider-track"></div>
 
-        <!-- Active range line between min and max (always blue) -->
-        <div class="slider-range-fill" style="left: ${pointers[0].pos}%; right: ${100 - pointers[2].pos}%"></div>
+        <div
+          class="slider-range-fill"
+          style="left: ${pointers[IDX_MIN].pos}%; right: ${100 - pointers[IDX_MAX].pos}%"
+        ></div>
 
         ${pointers.map(
           (slider, index) => html`
             <div
-              class="slider-pointer"
+              class="slider-handle"
               style="left: ${slider.pos}%"
               @pointerdown="${(e: PointerEvent) => this._onPointerDown(index, e)}"
-            ></div>
+            >
+              <div class="slider-label">${slider.value.toFixed(1)}°C</div>
+              <div class="slider-pointer"></div>
+            </div>
           `,
         )}
-      </div>
-      <div class="result-container">
-        <div>Min: ${(min ?? 0).toFixed(1)} °C</div>
-        <div>Comfort: ${(comfort ?? 0).toFixed(1)} °C</div>
-        <div>Max: ${(max ?? 0).toFixed(1)} °C</div>
       </div>
     `;
   }
@@ -136,36 +136,46 @@ export class ProthermMultiSlider extends LitElement {
       .slider-container {
         position: relative;
         width: 100%;
-        height: 40px;
-        background-color: transparent;
-        cursor: pointer;
+        height: 60px;
+        margin-top: 20px;
         touch-action: none;
       }
-      .slider-track {
-        position: absolute;
-        top: 50%;
-        left: 0;
-        width: 100%;
-        height: 6px;
-        transform: translateY(-50%);
-        background: linear-gradient(to right, #0066cc, #ff3300);
-        border-radius: 3px;
-        z-index: 0;
-      }
+      .slider-track,
       .slider-range-fill {
         position: absolute;
-        top: 50%;
+        top: 42px;
         height: 6px;
-        transform: translateY(-50%);
-        background-color: #0088ff;
-        box-shadow: 0 0 4px rgba(0, 136, 255, 0.6);
-        border-radius: 4px;
+        border-radius: 3px;
+        background-color: #00d2ff; /* Brighter electric cyan-blue */
+        box-shadow: 0 0 6px rgba(0, 210, 255, 0.8); /* Makes it pop against both blue and red gradient areas */
         z-index: 1;
         pointer-events: none;
       }
+      .slider-track {
+        left: 0;
+        width: 100%;
+        background: linear-gradient(to right, #0066cc, #ff3300);
+        z-index: 0;
+      }
+      .slider-range-fill {
+        background-color: #0066cc;
+        z-index: 1;
+        pointer-events: none;
+      }
+      .slider-handle {
+        position: absolute;
+        top: 45px;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        z-index: 2;
+        cursor: pointer;
+        touch-action: none;
+      }
       .slider-pointer {
         position: absolute;
-        top: 50%;
+        top: 0;
+        left: 0;
         transform: translate(-50%, -50%);
         width: 14px;
         height: 14px;
@@ -173,17 +183,23 @@ export class ProthermMultiSlider extends LitElement {
         background-color: var(--primary-color, #0066cc);
         border: 2px solid white;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        cursor: pointer;
-        z-index: 2;
       }
-      .slider-pointer:hover {
+      .slider-label {
+        position: absolute;
+        bottom: 14px;
+        left: 0;
+        transform: translateX(-50%);
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        color: var(--primary-text-color, #333);
+        background: var(--card-background-color, #fff);
+        padding: 1px 4px;
+        border-radius: 4px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+      .slider-handle:hover .slider-pointer {
         transform: translate(-50%, -50%) scale(1.15);
-      }
-      .result-container {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 8px;
-        font-size: 12px;
       }
     `;
   }

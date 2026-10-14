@@ -1,3 +1,6 @@
 export const MIN_TEMPERATURE = 15;
 export const COMFORT_TEMPERATURE = 21;
 export const MAX_TEMPERATURE = 24;
+export const IDX_MIN = 0;
+export const IDX_COMFORT = 1;
+export const IDX_MAX = 2;
