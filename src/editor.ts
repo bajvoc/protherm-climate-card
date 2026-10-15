@@ -4,6 +4,7 @@ import { HomeAssistant, fireEvent, LovelaceCardEditor, ActionConfig } from 'cust
 
 import { ProthermClimateCardConfig } from './types';
 import { customElement, property, state } from 'lit/decorators.js';
+import './multi-slider/multi-slider';
 
 @customElement('protherm-climate-card-editor')
 export class ProthermClimateCardEditor extends LitElement implements LovelaceCardEditor {
@@ -57,6 +58,18 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
       includeDomains.some((domain) => eid.startsWith(`${domain}.`)),
     );
 
+    /*const inputNumbers = this.hass?.states
+      ? Object.keys(this.hass.states).filter((eid) => eid.startsWith('input_number.'))
+      : [];
+
+    const minSelect = this.renderSelect('Min Temperature Entity', 'min_temperature_entity', inputNumbers);
+    const comfortSelect = this.renderSelect('Comfort Temperature Entity', 'comfort_temperature_entity', inputNumbers);
+    const maxSelect = this.renderSelect('Max Temperature Entity', 'max_temperature_entity', inputNumbers);
+
+    //        ${minSelect}${comfortSelect}${maxSelect}
+    */
+    console.log(`
+        render: min ${this._config?.min_temperature}, comfort ${this._config?.comfort_temperature}, max ${this._config?.max_temperature}`);
     return html`
       ${this._renderSection(
         'entity',
@@ -177,6 +190,7 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
             label="Icon (Optional)"
             @value-changed=${this._valueChanged}
           ></ha-icon-picker>
+          <multi-slider .config=${this._config} .hass=${this.hass}></multi-slider-->
           <!--ha-formfield label="Show Warning">
             <ha-switch
               .checked=${this._config?.show_warning ?? false}
@@ -225,15 +239,18 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
 
   private _valueChanged(ev: Event): void {
     if (!this._config || !this.hass) {
+      console.error(`_valueChanged: No config / hass object`);
       return;
     }
     const target = this._configValueTarget(ev);
     if (!target?.configValue) {
+      console.error(`_valueChanged: No configValue`);
       return;
     }
 
     const newValue = target.checked !== undefined ? target.checked : target.value;
     if (this._config[target.configValue] === newValue) {
+      console.log(`_valueChanged: value unchanged`);
       return;
     }
 

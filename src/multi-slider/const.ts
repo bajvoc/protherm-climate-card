@@ -4,3 +4,6 @@ export const MAX_TEMPERATURE = 24;
 export const IDX_MIN = 0;
 export const IDX_COMFORT = 1;
 export const IDX_MAX = 2;
+export const MIN_ENT = 'min';
+export const COMFORT_ENT = 'comfort';
+export const MAX_ENT = 'max';

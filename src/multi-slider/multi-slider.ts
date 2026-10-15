@@ -1,102 +1,27 @@
-import { LitElement, html, css, CSSResultGroup } from 'lit';
+import { html, css, CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { fireEvent } from 'custom-card-helpers';
-import { MIN_TEMPERATURE, MAX_TEMPERATURE, COMFORT_TEMPERATURE, IDX_MIN, IDX_MAX } from './const';
-import { ProthermClimateCardConfig } from '../types';
+import { MIN_TEMPERATURE, MAX_TEMPERATURE, COMFORT_TEMPERATURE, IDX_MIN, IDX_MAX, IDX_COMFORT } from './const';
+import { MultiSliderConfig } from './types';
+import { LitElementEx } from '../lit-element-ex';
 
 @customElement('multi-slider')
-export class ProthermMultiSlider extends LitElement {
-  @property({ attribute: false }) config!: ProthermClimateCardConfig;
-
-  private minLimit = MIN_TEMPERATURE;
-  private maxLimit = MAX_TEMPERATURE;
+export class ProthermMultiSlider extends LitElementEx {
+  @property({ attribute: false }) config!: MultiSliderConfig;
+  @property({ type: Number }) public minLimit: number = MIN_TEMPERATURE;
+  @property({ type: Number }) public maxLimit: number = MAX_TEMPERATURE;
 
   @state() private _activeIndex: number | null = null;
 
-  private _valueToPercent(val: number): number {
-    return ((val - MIN_TEMPERATURE) / (MAX_TEMPERATURE - MIN_TEMPERATURE)) * 100;
-  }
-
-  private _percentToValue(percent: number): number {
-    const raw = MIN_TEMPERATURE + (percent / 100) * (MAX_TEMPERATURE - MIN_TEMPERATURE);
-    return Math.round(raw * 2) / 2;
-  }
-
-  private _onPointerDown(index: number, e: PointerEvent) {
-    e.preventDefault();
-    this._activeIndex = index;
-
-    window.addEventListener('pointermove', this._onPointerMove);
-    window.addEventListener('pointerup', this._onPointerUp);
-  }
-
-  private _onPointerMove = (e: PointerEvent) => {
-    if (this._activeIndex === null) {
-      console.warn('Pointer move event received but no active index is set.');
-      return;
-    }
-
-    const container = this.shadowRoot?.querySelector('.slider-container');
-    if (!container) {
-      console.warn('slider-container not found');
-      return;
-    }
-
-    const rect = container.getBoundingClientRect();
-    const offsetX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const percent = (offsetX / rect.width) * 100;
-    const min = this.config?.min_temperature ?? MIN_TEMPERATURE;
-    const comfort = this.config?.comfort_temperature ?? COMFORT_TEMPERATURE;
-    const max = this.config?.max_temperature ?? MAX_TEMPERATURE;
-    let newValue = this._percentToValue(percent);
-    let configValue = '';
-
-    // Enforce strict hierarchical boundaries (min <= comfort <= max)
-    switch (this._activeIndex) {
-      case 0:
-        configValue = 'min_temperature';
-        newValue = Math.max(MIN_TEMPERATURE, Math.min(newValue, comfort));
-        break;
-      case 1:
-        configValue = 'comfort_temperature';
-        newValue = Math.max(min, Math.min(newValue, max));
-        break;
-      case 2:
-        configValue = 'max_temperature';
-        newValue = Math.max(comfort, Math.min(newValue, MAX_TEMPERATURE));
-        break;
-      default:
-        break;
-    }
-    // checks is empty string
-    if (configValue?.length) {
-      //console.log(`_onPointerMove: configValue ${configValue} min ${min}, comfort ${comfort}, max ${max}`);
-      this.config = {
-        ...this.config,
-        [configValue]: newValue,
-      };
-
-      fireEvent(this, 'config-changed', { config: this.config });
-      this.requestUpdate();
-    }
-  };
-
-  private _onPointerUp = () => {
-    this._activeIndex = null;
-    window.removeEventListener('pointermove', this._onPointerMove);
-    window.removeEventListener('pointerup', this._onPointerUp);
-  };
-
-  protected override firstUpdated(): void {
-    if (!this.config) {
-      throw new Error('Config not initialized');
-    }
-  }
-
   protected override render() {
-    const min = this.config?.min_temperature ?? MIN_TEMPERATURE;
-    const comfort = this.config?.comfort_temperature ?? COMFORT_TEMPERATURE;
-    const max = this.config?.max_temperature ?? MAX_TEMPERATURE;
+    const enabled =
+      this.config.min_temperature_entity &&
+      this.config.comfort_temperature_entity &&
+      this.config.max_temperature_entity;
+
+    const min = this._getConfigValue('min', MIN_TEMPERATURE);
+    const comfort = this._getConfigValue('comfort', COMFORT_TEMPERATURE);
+    const max = this._getConfigValue('max', MAX_TEMPERATURE);
 
     const pointers = [
       { value: min, pos: this._valueToPercent(min) },
@@ -106,10 +31,10 @@ export class ProthermMultiSlider extends LitElement {
 
     //console.log(`render: left: ${min}%; width: ${max - min}%`);
     //console.log(`render: min pointer: ${JSON.stringify(pointers[0])}`);
-    return html`
-      <div class="slider-container">
-        <div class="slider-track"></div>
 
+    return html`
+      <div class="slider-container${!enabled ? ' disabled' : ''}">
+        <div class="slider-track"></div>
         <div
           class="slider-range-fill"
           style="left: ${pointers[IDX_MIN].pos}%; right: ${100 - pointers[IDX_MAX].pos}%"
@@ -122,13 +47,143 @@ export class ProthermMultiSlider extends LitElement {
               style="left: ${slider.pos}%"
               @pointerdown="${(e: PointerEvent) => this._onPointerDown(index, e)}"
             >
-              <div class="slider-label">${slider.value.toFixed(1)}°C</div>
+              <div class="slider-label">${slider.value.toFixed(1)} °C</div>
               <div class="slider-pointer"></div>
             </div>
           `,
         )}
       </div>
     `;
+  }
+
+  /*protected override firstUpdated(): void {
+    super.firstUpdated();
+
+    if (
+      this.config.min_temperature_entity &&
+      this.config.comfort_temperature_entity &&
+      this.config.max_temperature_entity
+    ) {
+      this.config.min_temperature = this.getEntityState(this.config?.min_temperature_entity, MIN_TEMPERATURE);
+      this.config.comfort_temperature = this.getEntityState(
+        this.config?.comfort_temperature_entity,
+        COMFORT_TEMPERATURE,
+      );
+      this.config.max_temperature = this.getEntityState(this.config?.max_temperature_entity, MAX_TEMPERATURE);
+
+      console.log(
+        `firstUpdated: min: ${this.config.min_temperature}, comfort: ${this.config.comfort_temperature}, max: ${this.config.max_temperature}`,
+      );
+    } else {
+      console.warn('Temperature entities not set');
+    }
+  }*/
+
+  private _valueToPercent(val: number): number {
+    return ((val - this.minLimit) / (this.maxLimit - this.minLimit)) * 100;
+  }
+
+  private _percentToValue(percent: number): number {
+    const raw = this.minLimit + (percent / 100) * (this.maxLimit - this.minLimit);
+    return Math.round(raw * 2) / 2;
+  }
+
+  private _setValue(idx: number, newValue: number) {
+    let valKey = '';
+    switch (idx) {
+      case IDX_MIN:
+        valKey = 'min';
+        break;
+      case IDX_MAX:
+        valKey = 'max';
+        break;
+      case IDX_COMFORT:
+        valKey = 'comfort';
+        break;
+      default:
+        break;
+    }
+    if (valKey.length) {
+      this.config = {
+        ...this.config,
+        [`${valKey}_temperature`]: newValue,
+      };
+      fireEvent(this, 'config-changed', { config: this.config });
+    }
+  }
+
+  private _getConfigValue(valKey: 'min' | 'comfort' | 'max', fallback: number): number {
+    return this.config?.[`${valKey}_temperature`] ?? fallback;
+  }
+
+  private _onPointerDown(index: number, e: PointerEvent) {
+    e.preventDefault();
+    this._activeIndex = index;
+    window.addEventListener('pointermove', this._onPointerMove);
+    window.addEventListener('pointerup', this._onPointerUp);
+  }
+
+  private _onPointerMove = (e: PointerEvent) => {
+    if (this._activeIndex === null) {
+      console.warn('_onPointerDown: Pointer move event received but no active index is set.');
+      return;
+    }
+
+    const container = this.shadowRoot?.querySelector('.slider-container');
+    if (!container) {
+      console.warn('_onPointerDown: slider-container not found');
+      return;
+    }
+
+    const rect = container.getBoundingClientRect();
+    const offsetX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const percent = (offsetX / rect.width) * 100;
+    let newValue = this._percentToValue(percent);
+    let entityId = undefined;
+
+    //console.log(`_onPointerMove: idx: ${this._activeIndex} newValue: ${newValue}`);
+    switch (this._activeIndex) {
+      case IDX_MIN: {
+        const comfort = this._getConfigValue('comfort', COMFORT_TEMPERATURE);
+        newValue = Math.max(this.minLimit, Math.min(newValue, comfort));
+        //console.log(`_onPointerMove: min: ${newValue}, comfort: ${comfort}`);
+        entityId = this.config?.min_temperature_entity;
+        break;
+      }
+      case IDX_COMFORT: {
+        const min = this._getConfigValue('min', MIN_TEMPERATURE);
+        const max = this._getConfigValue('max', MAX_TEMPERATURE);
+        newValue = Math.max(min, Math.min(newValue, max));
+        //console.log(`_onPointerMove: comfort: ${newValue}, min: ${min} max: ${max}`);
+        entityId = this.config?.comfort_temperature_entity;
+        break;
+      }
+      case IDX_MAX: {
+        const comfort = this._getConfigValue('comfort', COMFORT_TEMPERATURE);
+        newValue = Math.max(comfort, Math.min(newValue, this.maxLimit));
+        //console.log(`_onPointerMove: max: ${newValue} comfort: ${newValue}`);
+        entityId = this.config?.max_temperature_entity;
+        break;
+      }
+      default:
+        break;
+    }
+    if (entityId) {
+      this._setValue(this._activeIndex, newValue);
+      this._setEntityState(entityId, newValue);
+      this.requestUpdate();
+    }
+  };
+
+  private _onPointerUp = () => {
+    this._activeIndex = null;
+    window.removeEventListener('pointermove', this._onPointerMove);
+    window.removeEventListener('pointerup', this._onPointerUp);
+  };
+
+  private _setEntityState(entityId?: string, state?: number): void {
+    //console.log(`_setEntityState: entityId: ${entityId}, state: ${state}`);
+    this.callService(entityId, state?.toString());
   }
 
   static get styles(): CSSResultGroup {
@@ -140,14 +195,18 @@ export class ProthermMultiSlider extends LitElement {
         margin-top: 20px;
         touch-action: none;
       }
+      .slider-container.disabled {
+        opacity: 0.45;
+        pointer-events: none;
+        cursor: not-allowed;
+        filter: grayscale(80%);
+      }
       .slider-track,
       .slider-range-fill {
         position: absolute;
         top: 42px;
         height: 6px;
         border-radius: 3px;
-        background-color: #00d2ff; /* Brighter electric cyan-blue */
-        box-shadow: 0 0 6px rgba(0, 210, 255, 0.8); /* Makes it pop against both blue and red gradient areas */
         z-index: 1;
         pointer-events: none;
       }
