@@ -1,6 +1,7 @@
 import { HassEntity } from 'home-assistant-js-websocket';
 import { MAX, MIN, CENTERX, CENTERY, RADIUS, STARTANGLE, TOTALANGLE } from './const';
-import { formatTimestamp, HomeAssistant, relativeTime } from 'custom-card-helpers';
+import { HomeAssistant, relativeTime } from 'custom-card-helpers';
+import { ProgressData } from './protherm-types';
 
 export const calculatePoint = (temp: number, min: number, max: number) => {
   // Clamp temp so markers don't fly off the track
@@ -44,14 +45,8 @@ export const calculateTempFromPoint = (clickX: number, clickY: number, rect: DOM
 export const calculateprogressPercentage = (
   hass: HomeAssistant,
   currentSchedule: HassEntity | undefined,
-):
-  | {
-      progress: number;
-      start: string;
-      end: string;
-      next_trigger: string;
-    }
-  | undefined => {
+  outsideTemp: number,
+): ProgressData | undefined => {
   if (!currentSchedule || !currentSchedule.attributes) {
     console.warn('Current schedule entity is missing or has no attributes');
     /*return {
@@ -62,8 +57,19 @@ export const calculateprogressPercentage = (
     };*/
     return undefined;
   }
+  let retVal = undefined;
+  const domain = currentSchedule.entity_id.split('.')[0];
 
-  const timeSlot = currentSchedule.attributes.timeslots[currentSchedule.attributes.current_slot];
+  if (domain === 'switch') {
+    retVal = calculateFromTimeslots(hass, currentSchedule);
+  } else {
+    retVal = calculateFromTempslots(currentSchedule, outsideTemp);
+  }
+  return retVal;
+};
+
+export const calculateFromTimeslots = (hass: HomeAssistant, entity: HassEntity): ProgressData => {
+  const timeSlot = entity.attributes.timeslots[entity.attributes.current_slot];
   const [startStr, endStr] = timeSlot.split(' - ').map((t: string) => t.substring(0, 5));
 
   const now = new Date();
@@ -81,8 +87,27 @@ export const calculateprogressPercentage = (
     progress: progressPercentage,
     start: startStr,
     end: endStr,
-    next_trigger: relativeTime(new Date(currentSchedule.attributes.next_trigger), hass.locale),
+    next_trigger: relativeTime(new Date(entity.attributes.next_trigger), hass.locale),
   };
+};
+
+export const calculateFromTempslots = (entity: HassEntity, outsideTemp: number): ProgressData => {
+  const idx = entity.attributes.outside_temps.indexOf(
+    entity.attributes.outside_temps.filter((t: number) => t >= outsideTemp)[0],
+  );
+
+  const start = entity.attributes.outside_temps[idx - 1];
+  const end = entity.attributes.outside_temps[idx];
+  const min = Math.abs(entity.attributes.outside_temps[idx - 1] - outsideTemp);
+  const max = Math.abs(outsideTemp - entity.attributes.outside_temps[idx]);
+
+  const retVal: ProgressData = {
+    progress: outsideTemp,
+    start: start.toFixed(1),
+    end: end.toFixed(1),
+    next_trigger: `in ${(min < max ? min : max).toFixed(1)} degrees`,
+  };
+  return retVal;
 };
 
 export const toTimeRemaining = (timeStr: string | undefined): string => {
@@ -117,7 +142,8 @@ export const getMinutes = (str: string): number => {
 
 export const toPrecission = (number: string, precision?: number): string => {
   const parts = number.split('.');
-  return parts[0] + '.' + parts[1].slice(0, precision || 0);
+
+  return parts[0] + '.' + (parts.length === 1 ? '0' : parts[1]?.slice(0, precision || 0));
 };
 
 export const lastHours = (hours: number): number => {

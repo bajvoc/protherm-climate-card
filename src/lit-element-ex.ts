@@ -12,11 +12,11 @@ export class LitElementEx extends LitElement {
   // Lit will schedule a re-render whenever this property reference changes.
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  protected override firstUpdated(): void {
+  /*protected override firstUpdated(): void {
     if (!this.hass) {
       throw new Error('HomeAssistant not initialized');
     }
-  }
+  }*/
 
   protected getEntity(entityId?: string): HassEntity | undefined {
     let entity = undefined;
@@ -121,7 +121,9 @@ export class LitElementEx extends LitElement {
       `Method not implemented. ${entityId ? `Unhandled eindity: ${entityId}` : 'entityId not  provided'}`,
     );
   }
-  private _callService(domain: string, service: string, serviceData: Record<string, unknown>): void {
+
+  /** change to private, for  now  protected  until changes made in climate card */
+  protected _callService(domain: string, service: string, serviceData: Record<string, unknown>): void {
     this.hass.callService(domain, service, serviceData);
   }
 }

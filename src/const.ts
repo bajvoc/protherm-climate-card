@@ -12,3 +12,4 @@ export const TOTALLENGTH = 188.5;
 
 //export const BACKGROUNDCOLOR = '#ebebeb';
 export const BACKGROUNDCOLOR = 'lightblue';
+export const ALLOWED_SCHEDULE_TYPES = ['switch', 'sensor'];

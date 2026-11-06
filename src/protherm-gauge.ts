@@ -4,7 +4,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { GaugeConfig } from './gauge-types';
 import { GaugeElement } from './gauge-renderer'; // Import base class
 
-import { ProthermData, ProgressData } from './protherm-types';
+import { ProthermData } from './protherm-types';
 
 @customElement('protherm-gauge')
 export class ProthermGaugeElement extends GaugeElement {
@@ -111,6 +111,7 @@ export class ProthermGaugeElement extends GaugeElement {
   private _renderSchedule(gaugeData: GaugeConfig, prothermData: ProthermData): TemplateResult {
     const progressData = prothermData.schedule;
     const targetTemp = gaugeData.targetValue;
+
     return html`<div class="label-row ${gaugeData.enabled ? '' : 'disabled'}">
         ${this._renderScheduleStartEnd('start', progressData?.start)}
         <span class="target-text"> ${targetTemp}°C </span>
@@ -121,24 +122,83 @@ export class ProthermGaugeElement extends GaugeElement {
   }
 
   private _renderScheduleStartEnd(type: 'start' | 'end', timeStr: string | undefined): TemplateResult {
-    const [hours, minutes] = timeStr?.split(':') || ['00', '00'];
-
     return html`
       <div class="time-container ${type} ${timeStr ? '' : 'inactive'}">
-        <span class="hours">${type === 'end' ? minutes : hours}</span>
-        <span class="colon-align">:</span>
-        <span class="minutes">${type === 'end' ? hours : minutes}</span>
+        ${this._renderScheduleContainer(type, timeStr)}
       </div>
     `;
   }
 
-  private _renderScheduleProgress(gaugeData: GaugeConfig, prothermData: ProthermData): TemplateResult {
-    const progress = prothermData.schedule?.progress;
-    if (!progress) return html``;
+  private _renderScheduleContainer(type: 'start' | 'end', text: string | undefined) {
+    let element = html``;
+    if (text) {
+      if (text.includes(':')) {
+        const [hours, minutes] = text.split(':');
+        element = html`
+          <span class="hours">${type === 'end' ? minutes : hours}</span>
+          <span class="colon-align">:</span>
+          <span class="minutes">${type === 'end' ? hours : minutes}</span>
+        `;
+      } else {
+        // Temperature formatting grouped together so they stay side-by-side
+        element = html`
+          <span class="temp-group"><span class="temp-value">${text}</span><span class="temp-unit">&nbsp;°</span></span>
+        `;
+      }
+    }
+    return element;
+  }
 
-    return html`<div class="progress-track ${gaugeData.enabled ? '' : 'disabled'}">
-      <div class="progress-fill" style="width: ${progress}%"></div>
-    </div>`;
+  private _renderScheduleProgress(gaugeData: GaugeConfig, prothermData: ProthermData): TemplateResult {
+    let element: TemplateResult;
+    if (prothermData.schedule?.start.includes(':')) {
+      element = this._renderTimeProgress(gaugeData, prothermData);
+    } else {
+      element = this._renderTemperatureProgress(gaugeData, prothermData);
+    }
+    return element;
+  }
+
+  private _renderTimeProgress(gaugeData: GaugeConfig, prothermData: ProthermData): TemplateResult {
+    let element = html``;
+    const progress = prothermData.schedule?.progress;
+    if (progress) {
+      element = html`<div class="progress-track ${gaugeData.enabled ? '' : 'disabled'}">
+        <div class="progress-fill" style="width: ${progress}%"></div>
+      </div>`;
+    }
+    return element;
+  }
+
+  private _renderTemperatureProgress(gaugeData: GaugeConfig, prothermData: ProthermData): TemplateResult {
+    let element = html``;
+    if (prothermData.schedule) {
+      const progress = prothermData.schedule.progress;
+      const min = parseFloat(prothermData.schedule.start);
+      const max = parseFloat(prothermData.schedule.end);
+      const center = (min + max) / 2;
+      const halfSpan = (max - min) / 2;
+      // Guard against division by zero if min equals max
+      if (halfSpan != 0) {
+        const rawPercent = ((progress - center) / halfSpan) * 100;
+        const clampedPercent = Math.max(-100, Math.min(100, rawPercent));
+
+        const isPositive = clampedPercent >= 0;
+        const left = isPositive ? 50 : 50 + clampedPercent / 2;
+        const width = Math.abs(clampedPercent) / 2;
+
+        element = html`
+          <div class="progress-track ${gaugeData.enabled ? '' : 'disabled'}">
+            <div class="progress-center-marker"></div>
+            <div
+              class="progress-fill ${isPositive ? 'positive' : 'negative'}"
+              style="left: ${left}%; width: ${width}%"
+            ></div>
+          </div>
+        `;
+      }
+    }
+    return element;
   }
 
   private _renderTempFooter(
@@ -155,13 +215,15 @@ export class ProthermGaugeElement extends GaugeElement {
   }
 
   private _renderTimeRemaining(gaugeData: GaugeConfig, prothermData: ProthermData): TemplateResult {
+    let element = html``;
     const schedule = prothermData.schedule;
-    if (!schedule || !schedule.next_trigger) return html``;
-
-    const nextTrigger = schedule?.next_trigger || '';
-    return html` <div class="time-remaining ${gaugeData.enabled ? '' : 'disabled'}">
-      <div class="last-updated">${nextTrigger}</div>
-    </div>`;
+    if (schedule && schedule.next_trigger) {
+      const nextTrigger = schedule?.next_trigger || '';
+      element = html` <div class="time-remaining ${gaugeData.enabled ? '' : 'disabled'}">
+        <div class="last-updated">${nextTrigger}</div>
+      </div>`;
+    }
+    return element;
   }
 
   static override get styles(): CSSResultGroup {
@@ -299,11 +361,12 @@ export class ProthermGaugeElement extends GaugeElement {
         visibility: hidden;
       }
 
+      /* Existing Time Styles (Untouched) */
       .time-container .hours,
       .time-container .colon-align,
       .time-container .minutes {
         position: absolute;
-        bottom: 0; /* Anchor them to the bottom of the time-container */
+        bottom: 0;
         line-height: 1;
       }
 
@@ -321,12 +384,25 @@ export class ProthermGaugeElement extends GaugeElement {
         left: 4px;
       }
 
-      /* The Colon sits exactly above the start/end of the bar */
-      .colon-align {
-        font-weight: bold;
+      /* Temperature Group Styles */
+      .time-container .temp-group {
+        position: absolute;
+        bottom: 0;
+        line-height: 1;
+        display: inline-flex;
+        align-items: baseline;
+      }
+
+      .time-container.start .temp-group {
+        left: 4px;
+      }
+
+      .time-container.end .temp-group {
+        right: 4px;
       }
 
       .progress-track {
+        position: relative;
         width: 120px;
         height: 4px;
         background-color: rgba(255, 255, 255, 0.1);
@@ -337,14 +413,39 @@ export class ProthermGaugeElement extends GaugeElement {
       .progress-track.disabled {
         opacity: 0.4;
         filter: grayscale(100%);
-        pointer-events: none; /* Prevents clicking the gauge when off */
+        pointer-events: none;
         transition: all 0.4s ease;
       }
 
+      /* Optional: a subtle indicator line right in the middle (50%) */
+      .progress-center-marker {
+        position: absolute;
+        left: 50%;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.4);
+        transform: translateX(-50%);
+        z-index: 1;
+      }
+
       .progress-fill {
+        position: absolute;
+        top: 0;
         height: 100%;
         background-color: #4caf50;
-        transition: width 0.5s ease;
+        transition:
+          width 0.5s ease,
+          left 0.5s ease;
+        z-index: 2;
+      }
+
+      /* Optional styling tweak if you want negative (toward min) vs positive (toward max) colors */
+      .progress-fill.negative {
+        background-color: #2196f3; /* Blue for colder/min direction */
+      }
+      .progress-fill.positive {
+        background-color: #ff2600; /* Orange/Red for warmer/max direction */
       }
 
       .temp-footer {

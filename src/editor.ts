@@ -1,16 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { LitElement, html, TemplateResult, css } from 'lit';
-import { HomeAssistant, fireEvent, LovelaceCardEditor, ActionConfig } from 'custom-card-helpers';
+import { html, TemplateResult, css } from 'lit';
+import { fireEvent, LovelaceCardEditor, ActionConfig } from 'custom-card-helpers';
 
 import { ProthermClimateCardConfig } from './types';
 import { customElement, property, state } from 'lit/decorators.js';
-import './multi-slider/multi-slider';
+//import './multi-slider/multi-slider';
+import { LitEditor } from './lit-editor';
 
 @customElement('protherm-climate-card-editor')
-export class ProthermClimateCardEditor extends LitElement implements LovelaceCardEditor {
-  @property({ attribute: false }) public hass!: HomeAssistant;
-
-  @state() private _config?: ProthermClimateCardConfig;
+export class ProthermClimateCardEditor extends LitEditor implements LovelaceCardEditor {
+  @property({ attribute: false }) declare config: ProthermClimateCardConfig;
 
   @state() private _openSection = 'entity';
 
@@ -26,7 +25,7 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
 
   public setConfig(config: ProthermClimateCardConfig): void {
     // Deep clone and ensure proper action defaults
-    this._config = {
+    this.config = {
       ...structuredClone(config),
       // Initialize actions with proper defaults if not set
       tap_action: config.tap_action || { action: 'more-info' },
@@ -43,12 +42,23 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
     this.requestUpdate();
   }
 
+  protected override firstUpdated(): void {
+    /*
+      console.log(`firstUpdated start: ${!this.config}`);
+      super.firstUpdated();
+      if (!this.config) {
+        throw new Error('Config not initialized');
+      }
+      console.log(`firstUpdated end: ${!this.config}`);
+    */
+  }
+
   protected shouldUpdate(): boolean {
     return true;
   }
 
   protected render(): TemplateResult | void {
-    if (!this.hass || !this._config) {
+    if (!this.hass || !this.config) {
       return html`<div>Loading...</div>`;
     }
 
@@ -58,140 +68,63 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
       includeDomains.some((domain) => eid.startsWith(`${domain}.`)),
     );
 
-    /*const inputNumbers = this.hass?.states
-      ? Object.keys(this.hass.states).filter((eid) => eid.startsWith('input_number.'))
-      : [];
-
-    const minSelect = this.renderSelect('Min Temperature Entity', 'min_temperature_entity', inputNumbers);
-    const comfortSelect = this.renderSelect('Comfort Temperature Entity', 'comfort_temperature_entity', inputNumbers);
-    const maxSelect = this.renderSelect('Max Temperature Entity', 'max_temperature_entity', inputNumbers);
-
-    //        ${minSelect}${comfortSelect}${maxSelect}
-    */
-    console.log(`
-        render: min ${this._config?.min_temperature}, comfort ${this._config?.comfort_temperature}, max ${this._config?.max_temperature}`);
     return html`
       ${this._renderSection(
         'entity',
         'Entity',
         html`
-          <ha-select
-            .hass=${this.hass}
-            label="Entity (Required)"
-            .value=${this._config?.entity || ''}
-            .configValue=${'entity'}
-            required="true"
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${climateEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Heating enabled (Required)"
-            .value=${this._config?.heating_switch || ''}
-            .configValue=${'heating_switch'}
-            required="true"
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="External Temperature Entity (Optional)"
-            .value=${this._config?.external_temperature_entity || ''}
-            .configValue=${'external_temperature_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Return Temperature Entity (Optional)"
-            .value=${this._config?.return_temperature_entity || ''}
-            .configValue=${'return_temperature_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Temperature Alarm Entity (Optional)"
-            .value=${this._config?.temperature_alarm_entity || ''}
-            .configValue=${'temperature_alarm_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Pressure Alarm Entity (Optional)"
-            .value=${this._config?.pressure_alarm_entity || ''}
-            .configValue=${'pressure_alarm_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Schedule Entity (Optional)"
-            .value=${this._config?.schedule_entity || ''}
-            .configValue=${'schedule_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Season switch (Optional)"
-            .value=${this._config?.season_entity || ''}
-            .configValue=${'season_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Monthly consumption (Optional)"
-            .value=${this._config?.monthly_consumption_entity || ''}
-            .configValue=${'monthly_consumption_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
-          <ha-select
-            label="Season consumption (Optional)"
-            .value=${this._config?.season_consumption_entity || ''}
-            .configValue=${'season_consumption_entity'}
-            @change=${this._valueChanged}
-            @closed=${(ev: Event) => ev.stopPropagation()}
-          >
-            ${filteredEntities.map((entity) => html` <mwc-list-item .value=${entity}>${entity}</mwc-list-item> `)}
-          </ha-select>
+          ${this.renderSelect('Entity (Required)', 'entity', climateEntities, 'true', true)}
+          ${this.renderSelect('Heating enabled (Required)', 'heating_switch', filteredEntities, 'true')}
+          ${this.renderSelect(
+            'External Temperature Entity (Optional)',
+            'external_temperature_entity',
+            filteredEntities,
+          )}
+          ${this.renderSelect('Return Temperature Entity (Optional)', 'return_temperature_entity', filteredEntities)}
+          ${this.renderSelect('Temperature Alarm Entity (Optional)', 'temperature_alarm_entity', filteredEntities)}
+          ${this.renderSelect('Pressure Alarm Entity (Optional)', 'pressure_alarm_entity', filteredEntities)}
+          ${this.renderSelect('Schedule Entity (Optional)', 'schedule_entity', filteredEntities)}
+          ${this.renderSelect('Season switch (Optional)', 'season_entity', filteredEntities)}
+          ${this.renderSelect('Monthly consumption (Optional)', 'monthly_consumption_entity', filteredEntities)}
+          ${this.renderSelect('Season consumption (Optional)', 'season_consumption_entity', filteredEntities)}
           <ha-area-picker
-            .curValue=${this._config?.area || ''}
+            .curValue=${this.config?.area || ''}
             no-add
             .hass=${this.hass}
-            .value=${this._config?.area || ''}
+            .value=${this.config?.area || ''}
             .configValue=${'area'}
             label="Area to display"
             @value-changed=${this._valueChanged}
           ></ha-area-picker>
           <ha-textfield
             label="Name (Optional)"
-            .value=${this._config?.name || ''}
+            .value=${this.config?.name || ''}
             .configValue=${'name'}
             @input=${this._valueChanged}
           ></ha-textfield>
           <ha-icon-picker
             .hass=${this.hass}
-            .value=${this._config?.icon || ''}
+            .value=${this.config?.icon || ''}
             .configValue=${'icon'}
             label="Icon (Optional)"
             @value-changed=${this._valueChanged}
           ></ha-icon-picker>
-          <multi-slider .config=${this._config} .hass=${this.hass}></multi-slider-->
-          <!--ha-formfield label="Show Warning">
+        `,
+      )}
+    `;
+    /*
+      const inputNumbers = this.hass?.states
+      ? Object.keys(this.hass.states).filter((eid) => eid.startsWith('input_number.'))
+      : [];
+
+      html`
+          // for  now no use for multislider,  but it's good component need to finish it !!!
+          ${this.renderSelect('Min Temperature Entity', 'min_temperature_entity', inputNumbers)}
+          ${this.renderSelect('Comfort Temperature Entity', 'comfort_temperature_entity', inputNumbers)}
+          ${this.renderSelect('Max Temperature Entity', 'max_temperature_entity', inputNumbers)}
+          <multi-slider .config=${this.config} .hass=${this.hass}></multi-slider>
+          <!--
+          <ha-formfield label="Show Warning">
             <ha-switch
               .checked=${this._config?.show_warning ?? false}
               .configValue=${'show_warning'}
@@ -204,10 +137,10 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
               .configValue=${'show_error'}
               @change=${this._valueChanged}
             ></ha-switch>
-          </ha-formfield-->
-        `,
-      )}
-    `;
+          </ha-formfield>
+        `
+        -->
+    */
   }
 
   private _toggleSection(ev: Event, id: string): void {
@@ -238,7 +171,7 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
   }
 
   private _valueChanged(ev: Event): void {
-    if (!this._config || !this.hass) {
+    if (!this.config || !this.hass) {
       console.error(`_valueChanged: No config / hass object`);
       return;
     }
@@ -249,28 +182,27 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
     }
 
     const newValue = target.checked !== undefined ? target.checked : target.value;
-    if (this._config[target.configValue] === newValue) {
-      console.log(`_valueChanged: value unchanged`);
+    if (this.config[target.configValue] === newValue) {
       return;
     }
 
     if (target.value === '') {
-      const tmpConfig = { ...this._config };
+      const tmpConfig = { ...this.config };
       delete tmpConfig[target.configValue];
-      this._config = tmpConfig;
+      this.config = tmpConfig;
     } else {
-      this._config = {
-        ...this._config,
+      this.config = {
+        ...this.config,
         [target.configValue]: newValue,
       };
     }
 
-    fireEvent(this, 'config-changed', { config: this._config });
+    fireEvent(this, 'config-changed', { config: this.config });
     this.requestUpdate();
   }
 
   private _selectorChanged(ev: CustomEvent): void {
-    if (!this._config || !this.hass) {
+    if (!this.config || !this.hass) {
       return;
     }
     const target = ev.target as any;
@@ -278,16 +210,16 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
     if (!configValue) {
       return;
     }
-    this._config = {
-      ...this._config,
+    this.config = {
+      ...this.config,
       [configValue]: ev.detail.value,
     };
-    fireEvent(this, 'config-changed', { config: this._config });
+    fireEvent(this, 'config-changed', { config: this.config });
     this.requestUpdate();
   }
 
   private _actionChanged(ev: CustomEvent): void {
-    if (!this._config || !this.hass) {
+    if (!this.config || !this.hass) {
       return;
     }
 
@@ -301,7 +233,7 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
     const newAction = ev.detail.value as ActionConfig;
 
     // Create a clean copy without undefined values
-    const updatedConfig = { ...this._config };
+    const updatedConfig = { ...this.config };
 
     // Handle action updates - ensure we always have a valid action object
     if (newAction && newAction.action) {
@@ -320,9 +252,9 @@ export class ProthermClimateCardEditor extends LitElement implements LovelaceCar
       };
     }
 
-    this._config = updatedConfig;
+    this.config = updatedConfig;
 
-    fireEvent(this, 'config-changed', { config: this._config });
+    fireEvent(this, 'config-changed', { config: this.config });
     this.requestUpdate();
   }
 

@@ -1,8 +1,7 @@
-import { LitElement, html, TemplateResult, css, PropertyValues, CSSResultGroup } from 'lit';
+import { html, TemplateResult, css, PropertyValues, CSSResultGroup } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { HassEntity } from 'home-assistant-js-websocket';
 import {
-  HomeAssistant, // The main hass object — passed down from HA on every state change
   hasConfigOrEntityChanged, // Utility: returns true only when config or the tracked entity changed
   hasAction, // Utility: returns true when an ActionConfig is not 'none'
   ActionHandlerEvent, // Event type fired by the action-handler directive
@@ -23,6 +22,7 @@ import { localize } from './localize/localize';
 import { calculateprogressPercentage, calculateTempFromPoint, toPrecission } from './protherm-helpers';
 import { ProthermData } from './protherm-types';
 import './protherm-gauge';
+import { LitElementEx } from './lit-element-ex';
 
 // Styled console banner so your card is easy to spot in the browser console.
 // Stays visible in production — useful for version-mismatch debugging in HA.
@@ -54,7 +54,7 @@ interface WindowWithCustomCards extends Window {
 // e.g. 'my-weather-card'. Must match the `type:` in your YAML config and the
 // window.customCards entry above.
 @customElement('protherm-climate-card')
-export class ProthermClimateCard extends LitElement {
+export class ProthermClimateCard extends LitElementEx {
   // getConfigElement is called by HA when the user opens the visual editor.
   // The dynamic import keeps the editor code out of the main bundle — it is only
   // loaded when actually needed, improving initial load time.
@@ -78,16 +78,14 @@ export class ProthermClimateCard extends LitElement {
     return {};
   }
 
-  // `hass` is set by HA on every state change anywhere in the system.
-  // `attribute: false` means it is set as a JS property, not an HTML attribute
-  // (the object is too large to serialize as an attribute).
-  // Lit will schedule a re-render whenever this property reference changes.
-  @property({ attribute: false }) public hass!: HomeAssistant;
+  // `hass` is defined in LitElementEx
 
   // `config` is private internal state set via setConfig().
   // Using @state (instead of @property) means it won't be exposed as a public
   // property but will still trigger re-renders when it changes.
   @state() private config!: ProthermClimateCardConfig;
+
+  @property({ attribute: false }) public _isRefreshing: boolean = false;
 
   @property({ attribute: false }) public _localTargetTemp?: number;
   // setConfig is called by HA whenever the YAML config changes (including from
@@ -207,8 +205,17 @@ export class ProthermClimateCard extends LitElement {
     }
     const scheduleStateObj = this._getScheduleEntity();
     if (scheduleStateObj) {
-      if (!scheduleStateObj.attributes.timeslots || scheduleStateObj.attributes.timeslots.length === 0) {
-        return this._showError(`Unsupported schedule entity`);
+      const domain = scheduleStateObj.entity_id.split('.')[0];
+      if (domain === 'switch') {
+        if (!scheduleStateObj.attributes.timeslots || scheduleStateObj.attributes.timeslots.length === 0) {
+          return this._showError(`Unsupported schedule entity: no attributes timeslots`);
+        }
+      } else if (domain === 'sensor') {
+        if (!scheduleStateObj.attributes.outside_temps || scheduleStateObj.attributes.outside_temps.length === 0) {
+          return this._showError(`Unsupported schedule entity: no attributes outside_temps`);
+        }
+      } else {
+        return this._showError(`Unsupported entity ` + domain);
       }
     }
     const temperatureAlarmStateObj = this._getTemperatureAlarmEntity();
@@ -343,6 +350,9 @@ export class ProthermClimateCard extends LitElement {
       <div class="card-content">
         <ha-card>
           <div class="header-controls">
+            <!--ha-icon-button class="refresh-button" @click=${this._refreshSensors}>
+              <ha-icon icon="mdi:refresh"></ha-icon>
+            </ha-icon-button-->
             <ha-icon-button
               class="power-button ${gaugeData.enabled ? 'on' : 'off'}"
               .label=${gaugeData.enabled ? 'Turn Off' : 'Turn On'}
@@ -447,9 +457,9 @@ export class ProthermClimateCard extends LitElement {
     //console.log('Clicked');
   }
 
-  private _callService(domain: string, service: string, serviceData: Record<string, unknown>): void {
+  /*private _callService(domain: string, service: string, serviceData: Record<string, unknown>): void {
     this.hass.callService(domain, service, serviceData);
-  }
+  }*/
 
   private _showMoreInfo(entityId: string): void {
     const event = new Event('hass-more-info', {
@@ -523,7 +533,6 @@ export class ProthermClimateCard extends LitElement {
     const seasaon = (this._getSeasonEntity()?.state || 'off') == 'on' ? 'Heating season' : 'Summer season';
     const monthlyEntity = this._getMonthlyConsumptionEntity();
     const seasonEntity = this._getSeasonConsumptionEntity();
-
     return html` <div class="attributes">
       <strong>${seasaon}</strong>
       <div class="attribute">
@@ -654,6 +663,37 @@ export class ProthermClimateCard extends LitElement {
     //this.requestUpdate();
   }
 
+  private _refreshSensors(ev: Event): void {
+    ev.stopPropagation();
+    if (!this.hass || this._isRefreshing) return;
+
+    // 1. Trigger spin animation
+    this._isRefreshing = true;
+    this.requestUpdate();
+
+    try {
+      // List of entity IDs you want to force reload
+      const entitiesToUpdate = [this.config.schedule_entity];
+
+      // 2. Call the homeassistant.update_entity service for each entity
+      const updatePromises = entitiesToUpdate.map((entity_id) =>
+        this.hass.callService('homeassistant', 'update_entity', {
+          entity_id: entity_id,
+        }),
+      );
+
+      Promise.all(updatePromises);
+    } catch (err) {
+      console.error('Error refreshing sensors:', err);
+    } finally {
+      // 3. Stop spin animation after a brief delay so the user sees the rotation finish
+      setTimeout(() => {
+        this._isRefreshing = false;
+        this.requestUpdate();
+      }, 600);
+    }
+  }
+
   private _getConfiguredActions(): string {
     const actions = [];
     if (this.config.tap_action && this.config.tap_action.action !== 'none') {
@@ -670,12 +710,12 @@ export class ProthermClimateCard extends LitElement {
 
   private _getGaugeData(stateObj: HassEntity): ProthermData {
     const externalTempEntity = this._getExternalTemperatureEntity();
-    const externalTemp = parseFloat(externalTempEntity?.state || '').toFixed(1);
+    const externalTemp = parseFloat(externalTempEntity?.state || '');
     const returnTempEntity = this._getReturnTemperatureEntity();
     const returnTemp = parseFloat(returnTempEntity?.state || '').toFixed(1);
     //const monthlyEntity = this._getMonthlyConsumptionEntity();
     //const seasonEntity = this._getSeasonConsumptionEntity();
-    const progressData = calculateprogressPercentage(this.hass, this._getScheduleEntity());
+    const progressData = calculateprogressPercentage(this.hass, this._getScheduleEntity(), externalTemp);
 
     return {
       enabled: (this._getHeatingSwitchEntity()?.state || 'off') === 'on',
@@ -685,7 +725,7 @@ export class ProthermClimateCard extends LitElement {
       pressureAlarm: (this._getPressureAlarmEntity()?.state || 'off') === 'on',
       targetTemp: this._localTargetTemp ?? stateObj.attributes.temperature,
       currentTemp: stateObj.attributes.current_temperature,
-      outsideTemp: externalTempEntity ? externalTemp : undefined,
+      outsideTemp: externalTempEntity ? externalTemp.toFixed(1) : undefined,
       returnTemp: returnTempEntity ? returnTemp : undefined,
       schedule: progressData,
       //monthlyConsumption: parseFloat(this._getMonthlyConsumptionEntity()?.state || ''),
@@ -694,76 +734,53 @@ export class ProthermClimateCard extends LitElement {
   }
 
   private _getExternalTemperatureEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.external_temperature_entity) {
-      entity = this.hass.states[this.config.external_temperature_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.external_temperature_entity);
   }
 
   private _getHeatingSwitchEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.heating_switch) {
-      entity = this.hass.states[this.config.heating_switch];
-    }
-    return entity;
+    return this.getEntity(this.config.heating_switch);
   }
 
   private _getScheduleEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.schedule_entity) {
-      entity = this.hass.states[this.config.schedule_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.schedule_entity);
   }
 
   private _getTemperatureAlarmEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.temperature_alarm_entity) {
-      entity = this.hass.states[this.config.temperature_alarm_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.temperature_alarm_entity);
   }
 
   private _getPressureAlarmEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.pressure_alarm_entity) {
-      entity = this.hass.states[this.config.pressure_alarm_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.pressure_alarm_entity);
   }
 
   private _getReturnTemperatureEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.return_temperature_entity) {
-      entity = this.hass.states[this.config.return_temperature_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.return_temperature_entity);
   }
 
   private _getSeasonEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.season_entity) {
-      entity = this.hass.states[this.config.season_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.season_entity);
   }
 
   private _getMonthlyConsumptionEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.monthly_consumption_entity) {
-      entity = this.hass.states[this.config.monthly_consumption_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.monthly_consumption_entity);
   }
 
   private _getSeasonConsumptionEntity(): HassEntity | undefined {
-    let entity = undefined;
-    if (this.config.season_consumption_entity) {
-      entity = this.hass.states[this.config.season_consumption_entity];
-    }
-    return entity;
+    return this.getEntity(this.config.season_consumption_entity);
   }
+
+  private _getMinTemperatureEntity(): HassEntity | undefined {
+    return this.getEntity(this.config.min_temperature_entity);
+  }
+
+  private _getComfortTemperatureEntity(): HassEntity | undefined {
+    return this.getEntity(this.config.comfort_temperature_entity);
+  }
+
+  private _getMaxTemperatureEntity(): HassEntity | undefined {
+    return this.getEntity(this.config.max_temperature_entity);
+  }
+
   // Styles are encapsulated inside the Shadow DOM — they cannot leak out and
   // external page styles cannot leak in (except for CSS custom properties).
   //
@@ -1241,14 +1258,51 @@ export class ProthermClimateCard extends LitElement {
       .header-controls {
         position: absolute;
         top: 8px;
+        /*left: 8px; // uncomment to activate refresh button on the left side*/
         right: 8px;
         z-index: 10;
+        /* uncomment to activate refresh button on the left side
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        //pointer-events: none;*/
       }
 
-      .power-button {
+      /*.header-controls ha-icon-button {
+        pointer-events: auto;
+      }*/
+
+      .power-button,
+      .refresh-button {
         cursor: pointer;
         transition: color 0.3s ease;
+        /* uncomment to activate refresh button on the left side
+        //  transform 0.3s ease;*/
       }
+
+      /*.refresh-button {
+        color: var(--secondary-text-color);
+      }
+
+      .refresh-button:hover {
+        color: var(--primary-text-color);*/
+      /* Optional smooth half-rotation on hover */
+      /*transform: rotate(180deg);
+      }*/
+
+      /* Optional active spinning class during reload */
+      /*.refresh-button.spinning {
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        from {
+          transform: rotate(0deg);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }*/
 
       .power-button.on {
         color: var(--success-color, #4caf50);

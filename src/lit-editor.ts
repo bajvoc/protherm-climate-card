@@ -1,30 +1,30 @@
-import { html, TemplateResult, css, CSSResultGroup } from 'lit';
+import { html, TemplateResult, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import { fireEvent } from 'custom-card-helpers';
 
-import type { ProthermClimateCardConfig } from './types';
+import type { BaseCardConfig } from './types';
 import { LitElementEx } from './lit-element-ex';
 
 export class LitEditor extends LitElementEx {
-  @property({ attribute: false }) config!: ProthermClimateCardConfig;
+  @property({ attribute: false }) config!: BaseCardConfig;
 
-  protected override firstUpdated(): void {
+  /*protected override firstUpdated(): void {
     super.firstUpdated();
     if (!this.config) {
       throw new Error('Config not initialized');
     }
-  }
+  }*/
 
   protected configValueTarget(ev: Event):
     | (EventTarget & {
-        configValue?: keyof ProthermClimateCardConfig;
+        configValue?: keyof BaseCardConfig;
         value?: string;
         type?: string;
         checked?: boolean;
       })
     | null {
     return ev.target as EventTarget & {
-      configValue?: keyof ProthermClimateCardConfig;
+      configValue?: keyof BaseCardConfig;
       value?: string;
       type?: string;
       checked?: boolean;
@@ -33,10 +33,12 @@ export class LitEditor extends LitElementEx {
 
   protected valueChanged(ev: Event): void {
     if (!this.config || !this.hass) {
+      console.error(`valueChanged: No config / hass object`);
       return;
     }
     const target = this.configValueTarget(ev);
     if (!target?.configValue) {
+      console.error(`valueChanged: No configValue`);
       return;
     }
 
@@ -64,13 +66,19 @@ export class LitEditor extends LitElementEx {
     label: string,
     key: string,
     entities: string[],
+    required: 'true' | 'false' = 'false',
+    setHass: boolean = false,
     onChange: (ev: Event) => void = this.valueChanged,
   ): TemplateResult {
+    const hassAttr = setHass ? this.hass : nothing;
+
     return html`
       <ha-select
+        .hass=${hassAttr}
         .label=${label}
         .value=${this.config?.[key] || ''}
         .configValue=${key}
+        required=${required}
         @change=${onChange}
         @closed=${(ev: Event) => ev.stopPropagation()}
       >

@@ -1,16 +1,7 @@
 import { LitElement, html, svg, TemplateResult, css, CSSResultGroup } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-import {
-  BACKGROUNDCOLOR,
-  MAX,
-  MIN,
-  RADIUS,
-  CURRENT_MARKER_SCALE,
-  TARGET_MARKER_SCALE,
-  CENTERX,
-  TOTALLENGTH,
-} from './gauge-const';
+import { BACKGROUNDCOLOR, MAX, MIN, RADIUS, CURRENT_MARKER_SCALE, TARGET_MARKER_SCALE, CENTERX } from './gauge-const';
 import { GaugeConfig } from './gauge-types';
 import { calculatePoint, getGaugeLength, renderPath } from './gauge-helpers';
 
@@ -230,14 +221,11 @@ export class GaugeElement extends LitElement {
       }
 
       .gauge-track-bg {
-        /* to be removed */
-        stroke-width: 8;
         fill: none;
         opacity: 1;
       }
 
       .gauge-track {
-        /* to be removed */
         fill: none;
         stroke-linecap: round;
         transition: stroke-dasharray 0.5s ease;
@@ -246,7 +234,6 @@ export class GaugeElement extends LitElement {
       }
 
       .gauge-bridge {
-        /* to be removed */
         fill: none;
         stroke-linecap: round;
         opacity: 1;
