@@ -102,25 +102,6 @@ export class ProthermClimateCardEditor extends LitEditor implements LovelaceCard
             label="Icon (Optional)"
             @value-changed=${this._valueChanged}
           ></ha-icon-picker>
-          <!-- // for  now no use for multislider,  but it's good component need to finish it !!! -->
-          ${this.renderSelect('Min Temperature Entity', 'min_temperature_entity', inputNumbers)}
-          ${this.renderSelect('Comfort Temperature Entity', 'comfort_temperature_entity', inputNumbers)}
-          ${this.renderSelect('Max Temperature Entity', 'max_temperature_entity', inputNumbers)}
-          <multi-slider .config=${this.config} .hass=${this.hass}></multi-slider>
-          <ha-formfield label="Show Warning">
-            <ha-switch
-              .checked=${this.config?.show_warning ?? false}
-              .configValue=${'show_warning'}
-              @change=${this._valueChanged}
-            ></ha-switch>
-          </ha-formfield>
-          <ha-formfield label="Show Error">
-            <ha-switch
-              .checked=${this.config?.show_error ?? false}
-              .configValue=${'show_error'}
-              @change=${this._valueChanged}
-            ></ha-switch>
-          </ha-formfield>
         `,
       )}
     `;
