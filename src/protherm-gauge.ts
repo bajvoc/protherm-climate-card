@@ -9,20 +9,7 @@ import { ProthermData } from './protherm-types';
 @customElement('protherm-gauge')
 export class ProthermGaugeElement extends GaugeElement {
   @property({ type: Object }) public config?: ProthermData;
-  /*protected override min = 0;
-  protected override max = 134;
-  protected override strokeWidth = 4;
-  protected override radius = 60;*/
 
-  /*protected override renderContainer(gaugeData: GaugeConfig): TemplateResult {
-    gaugeData.enabled = true;
-    gaugeData.currentValue = 15;
-    gaugeData.targetValue = 68;
-    gaugeData.isTrackActive = gaugeData.enabled ? true : false;
-    gaugeData.isBridgeActive = gaugeData.enabled ? true : false;
-
-    return super.renderContainer(gaugeData);
-  }*/
   protected override render(): TemplateResult | void {
     let element: TemplateResult | void;
 
@@ -53,19 +40,6 @@ export class ProthermGaugeElement extends GaugeElement {
       element = this.showError('No configuration provided');
     } else {
       const parentHtml = super.renderInfo(gaugeData);
-      /*const progressData: ProgressData = {
-        progress: 20,
-        start: '06:00',
-        end: '14:40',
-        next_trigger: '14:45',
-      };
-      const prothermData: ProthermData = {
-        tempAlarm: false,
-        pressureAlarm: false,
-        outsideTemp: '21.5',
-        returnTemp: '46.5',
-        schedule: progressData,
-      };*/
 
       element = html`${parentHtml}
         <div class="temp-display-container">

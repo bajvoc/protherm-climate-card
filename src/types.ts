@@ -43,25 +43,3 @@ export interface ClimateEntityConfig extends BaseCardConfig {
 }
 
 export interface ProthermClimateCardConfig extends BaseCardConfig, ClimateEntityConfig, MultiSliderConfig {}
-
-/*export interface GaugeData {
-  heatingEnabled: boolean;
-  //seasaon: string;
-  state: string;
-  tempAlarm: boolean;
-  pressureAlarm: boolean;
-  targetTemp: number;
-  currentTemp: number;
-  outsideTemp?: string;
-  returnTemp?: string;
-  schedule?: ProgressData;
-  //monthlyConsumption: number;
-  //seasonConsumption: number;
-}
-
-export interface ProgressData {
-  progress: number;
-  start: string;
-  end: string;
-  next_trigger: string;
-}*/

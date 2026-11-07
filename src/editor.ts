@@ -42,17 +42,6 @@ export class ProthermClimateCardEditor extends LitEditor implements LovelaceCard
     this.requestUpdate();
   }
 
-  protected override firstUpdated(): void {
-    /*
-      console.log(`firstUpdated start: ${!this.config}`);
-      super.firstUpdated();
-      if (!this.config) {
-        throw new Error('Config not initialized');
-      }
-      console.log(`firstUpdated end: ${!this.config}`);
-    */
-  }
-
   protected shouldUpdate(): boolean {
     return true;
   }
@@ -61,6 +50,10 @@ export class ProthermClimateCardEditor extends LitEditor implements LovelaceCard
     if (!this.hass || !this.config) {
       return html`<div>Loading...</div>`;
     }
+
+    const inputNumbers = this.hass?.states
+      ? Object.keys(this.hass.states).filter((eid) => eid.startsWith('input_number.'))
+      : [];
 
     const includeDomains = ['sensor', 'binary_sensor', 'switch', 'input_boolean'];
     const climateEntities = Object.keys(this.hass.states).filter((eid) => eid.startsWith('climate.'));
@@ -109,38 +102,28 @@ export class ProthermClimateCardEditor extends LitEditor implements LovelaceCard
             label="Icon (Optional)"
             @value-changed=${this._valueChanged}
           ></ha-icon-picker>
-        `,
-      )}
-    `;
-    /*
-      const inputNumbers = this.hass?.states
-      ? Object.keys(this.hass.states).filter((eid) => eid.startsWith('input_number.'))
-      : [];
-
-      html`
-          // for  now no use for multislider,  but it's good component need to finish it !!!
+          <!-- // for  now no use for multislider,  but it's good component need to finish it !!! -->
           ${this.renderSelect('Min Temperature Entity', 'min_temperature_entity', inputNumbers)}
           ${this.renderSelect('Comfort Temperature Entity', 'comfort_temperature_entity', inputNumbers)}
           ${this.renderSelect('Max Temperature Entity', 'max_temperature_entity', inputNumbers)}
           <multi-slider .config=${this.config} .hass=${this.hass}></multi-slider>
-          <!--
           <ha-formfield label="Show Warning">
             <ha-switch
-              .checked=${this._config?.show_warning ?? false}
+              .checked=${this.config?.show_warning ?? false}
               .configValue=${'show_warning'}
               @change=${this._valueChanged}
             ></ha-switch>
           </ha-formfield>
           <ha-formfield label="Show Error">
             <ha-switch
-              .checked=${this._config?.show_error ?? false}
+              .checked=${this.config?.show_error ?? false}
               .configValue=${'show_error'}
               @change=${this._valueChanged}
             ></ha-switch>
           </ha-formfield>
-        `
-        -->
-    */
+        `,
+      )}
+    `;
   }
 
   private _toggleSection(ev: Event, id: string): void {

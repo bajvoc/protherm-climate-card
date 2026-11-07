@@ -12,12 +12,6 @@ export class LitElementEx extends LitElement {
   // Lit will schedule a re-render whenever this property reference changes.
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  /*protected override firstUpdated(): void {
-    if (!this.hass) {
-      throw new Error('HomeAssistant not initialized');
-    }
-  }*/
-
   protected getEntity(entityId?: string): HassEntity | undefined {
     let entity = undefined;
     if (entityId) {

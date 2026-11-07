@@ -49,12 +49,6 @@ export const calculateprogressPercentage = (
 ): ProgressData | undefined => {
   if (!currentSchedule || !currentSchedule.attributes) {
     console.warn('Current schedule entity is missing or has no attributes');
-    /*return {
-      progress: 43,
-      start: '09:00',
-      end: '14:00',
-      next_trigger: relativeTime(new Date('2026-05-08T15:00:00+02:00'), hass.locale),
-    };*/
     return undefined;
   }
   let retVal = undefined;
@@ -130,8 +124,6 @@ export const toTimeRemaining = (timeStr: string | undefined): string => {
 export const toShortTime = (timeStr: string | undefined): string => {
   if (!timeStr) return '';
 
-  // The time "HH:MM" starts at index 11 and ends at 16
-  // "2026-04-29T20:30:00+02:00" -> "20:30"
   return timeStr.slice(11, 16);
 };
 

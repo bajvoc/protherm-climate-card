@@ -42,9 +42,7 @@ interface WindowWithCustomCards extends Window {
 (window as unknown as WindowWithCustomCards).customCards =
   (window as unknown as WindowWithCustomCards).customCards || [];
 (window as unknown as WindowWithCustomCards).customCards.push({
-  // TODO: Change 'protherm-climate-card' to match your @customElement decorator name.
   type: 'protherm-climate-card',
-  // TODO: Give your card a user-facing name and description.
   name: 'Protherm Climate Card',
   description: 'A custom climate card for Protherm thermostats with enhanced features and styling.',
 });

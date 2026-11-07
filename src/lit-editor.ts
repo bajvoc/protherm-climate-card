@@ -8,13 +8,6 @@ import { LitElementEx } from './lit-element-ex';
 export class LitEditor extends LitElementEx {
   @property({ attribute: false }) config!: BaseCardConfig;
 
-  /*protected override firstUpdated(): void {
-    super.firstUpdated();
-    if (!this.config) {
-      throw new Error('Config not initialized');
-    }
-  }*/
-
   protected configValueTarget(ev: Event):
     | (EventTarget & {
         configValue?: keyof BaseCardConfig;

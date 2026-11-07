@@ -29,9 +29,6 @@ export class ProthermMultiSlider extends LitElementEx {
       { value: max, pos: this._valueToPercent(max) },
     ];
 
-    //console.log(`render: left: ${min}%; width: ${max - min}%`);
-    //console.log(`render: min pointer: ${JSON.stringify(pointers[0])}`);
-
     return html`
       <div class="slider-container${!enabled ? ' disabled' : ''}">
         <div class="slider-track"></div>
@@ -55,29 +52,6 @@ export class ProthermMultiSlider extends LitElementEx {
       </div>
     `;
   }
-
-  /*protected override firstUpdated(): void {
-    super.firstUpdated();
-
-    if (
-      this.config.min_temperature_entity &&
-      this.config.comfort_temperature_entity &&
-      this.config.max_temperature_entity
-    ) {
-      this.config.min_temperature = this.getEntityState(this.config?.min_temperature_entity, MIN_TEMPERATURE);
-      this.config.comfort_temperature = this.getEntityState(
-        this.config?.comfort_temperature_entity,
-        COMFORT_TEMPERATURE,
-      );
-      this.config.max_temperature = this.getEntityState(this.config?.max_temperature_entity, MAX_TEMPERATURE);
-
-      console.log(
-        `firstUpdated: min: ${this.config.min_temperature}, comfort: ${this.config.comfort_temperature}, max: ${this.config.max_temperature}`,
-      );
-    } else {
-      console.warn('Temperature entities not set');
-    }
-  }*/
 
   private _valueToPercent(val: number): number {
     return ((val - this.minLimit) / (this.maxLimit - this.minLimit)) * 100;
@@ -141,12 +115,10 @@ export class ProthermMultiSlider extends LitElementEx {
     let newValue = this._percentToValue(percent);
     let entityId = undefined;
 
-    //console.log(`_onPointerMove: idx: ${this._activeIndex} newValue: ${newValue}`);
     switch (this._activeIndex) {
       case IDX_MIN: {
         const comfort = this._getConfigValue('comfort', COMFORT_TEMPERATURE);
         newValue = Math.max(this.minLimit, Math.min(newValue, comfort));
-        //console.log(`_onPointerMove: min: ${newValue}, comfort: ${comfort}`);
         entityId = this.config?.min_temperature_entity;
         break;
       }
@@ -154,14 +126,12 @@ export class ProthermMultiSlider extends LitElementEx {
         const min = this._getConfigValue('min', MIN_TEMPERATURE);
         const max = this._getConfigValue('max', MAX_TEMPERATURE);
         newValue = Math.max(min, Math.min(newValue, max));
-        //console.log(`_onPointerMove: comfort: ${newValue}, min: ${min} max: ${max}`);
         entityId = this.config?.comfort_temperature_entity;
         break;
       }
       case IDX_MAX: {
         const comfort = this._getConfigValue('comfort', COMFORT_TEMPERATURE);
         newValue = Math.max(comfort, Math.min(newValue, this.maxLimit));
-        //console.log(`_onPointerMove: max: ${newValue} comfort: ${newValue}`);
         entityId = this.config?.max_temperature_entity;
         break;
       }
@@ -182,7 +152,6 @@ export class ProthermMultiSlider extends LitElementEx {
   };
 
   private _setEntityState(entityId?: string, state?: number): void {
-    //console.log(`_setEntityState: entityId: ${entityId}, state: ${state}`);
     this.callService(entityId, state?.toString());
   }
 
