@@ -2,3 +2,46 @@ default_config:
 demo:
 homeassistant_alerts:
   enabled: false
+homeassistant:
+  customize:
+    switch.schedule_spring_and_autum:
+      weekdays: ["daily"]
+      timeslots:
+        - "00:00:00 - 06:00:00"
+        - "06:00:00 - 10:30:00"
+        - "10:30:00 - 15:00:00"
+        - "15:00:00 - 18:00:00"
+        - "18:00:00 - 20:30:00"
+        - "20:30:00 - 22:00:00"
+        - "22:00:00 - 00:00:00"
+      entities:
+        - "climate.ebusd_protherm_panther_condense"
+      actions:
+        - service: "climate.set_temperature"
+          data:
+            temperature: 19.5
+        - service: "climate.set_temperature"
+          data:
+            temperature: 19.5
+        - service: "climate.set_temperature"
+          data:
+            temperature: 20.0
+        - service: "climate.set_temperature"
+          data:
+            temperature: 20.5
+        - service: "climate.set_temperature"
+          data:
+            temperature: 21.0
+        - service: "climate.set_temperature"
+          data:
+            temperature: 20.5
+        - service: "climate.set_temperature"
+          data:
+            temperature: 19.5
+      current_slot: 2
+      next_slot: 3
+      next_trigger: "2026-10-06T10:30:00+02:00"
+      tags: []
+switch: !include conf/switches.yaml
+template: !include_dir_merge_list conf/templates
+input_number: !include conf/input_numbers.yaml

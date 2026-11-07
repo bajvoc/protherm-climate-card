@@ -1,0 +1,15 @@
+- sensor:
+  - name: "Dynamic Climate Target Temperature"
+    unique_id: dynamic_climate_target_temperature
+    unit_of_measurement: "°C"
+    device_class: temperature
+    state_class: measurement
+    state: >
+      {% set outside_temp = states('sensor.ebusd_broadcast_outsidetemp') | float(10.0) %}
+      {% set outside_temps = [-100, -22.0, -15.0, -10.0, -5.0, 0.0, 5.0, 12.0, 18.0, 20.0, 100] %}
+      {% set target_temps = [22, 22.0, 21.5, 21.5, 21.0, 20.5, 19.5, 19.5, 18.0, 18.0, 18] %}
+      {% set temp = outside_temps | select('ge', outside_temp) | first %}
+      {{target_temps[outside_temps.index(temp) - 1]}}
+    attributes:
+      outside_temps: "{{ [-100, -22.0, -15.0, -10.0, -5.0, 0.0, 5.0, 12.0, 18.0, 20.0, 100] }}"
+      target_temps: "{{ [22, 22.0, 21.5, 21.5, 21.0, 20.5, 19.5, 19.5, 18.0, 18.0, 18] }}"

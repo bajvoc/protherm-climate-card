@@ -1,0 +1,14 @@
+- platform: template
+  switches:
+    schedule_spring_and_autum:
+      friendly_name: "All day heating plan Spring and Autum"
+      icon_template: mdi:calendar-clock
+      value_template: "{{ is_state('input_boolean.schedule_spring_autumn_active', 'on') }}"
+      turn_on:
+        service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.schedule_spring_autumn_active
+      turn_off:
+        service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.schedule_spring_autumn_active
