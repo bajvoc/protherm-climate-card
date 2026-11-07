@@ -51,10 +51,6 @@ export class ProthermClimateCardEditor extends LitEditor implements LovelaceCard
       return html`<div>Loading...</div>`;
     }
 
-    const inputNumbers = this.hass?.states
-      ? Object.keys(this.hass.states).filter((eid) => eid.startsWith('input_number.'))
-      : [];
-
     const includeDomains = ['sensor', 'binary_sensor', 'switch', 'input_boolean'];
     const climateEntities = Object.keys(this.hass.states).filter((eid) => eid.startsWith('climate.'));
     const filteredEntities = Object.keys(this.hass.states).filter((eid) =>
